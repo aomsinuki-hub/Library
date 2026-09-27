@@ -2303,10 +2303,7 @@ function Actions.SetThemeColor(newColor)
         red = newColor,
         redBright = COLOR.redBright,
         redSoft = COLOR.redSoft,
-        neon = newColor,
-        innerBg = COLOR.innerBg,
-        innerBorder = Color3.fromHSV(h, 0.55, 0.42),
-        white = COLOR.white,
+        neon = newColor
     }
 
     MainStroke.Color =
@@ -2980,154 +2977,58 @@ end)
 
     --========================================================
     -- BUILT-IN TABS
-    -- Overview and Settings belong to the Library itself.
-    -- External GitHub scripts should only create their own tabs.
+    -- Overview is created first.
+    -- Settings is intentionally NOT created here.
+    -- The Loader creates Settings after all GitHub Tabs so it
+    -- always remains the last tab.
     --========================================================
 
     do
-        --====================================================
-        -- BUILT-IN OVERVIEW
-        --====================================================
         local Overview = Window:CreateTab("Overview", "house")
         Overview:Section("DX PANEL")
         Overview:Button("Library loaded", function()
             print("DXPanel Library loaded")
         end)
+    end
 
-        --====================================================
-        -- BUILT-IN SETTINGS
-        -- Theme color + Delete GUI only
-        --====================================================
+    -- Called by the outer Loader after all GitHub tabs are loaded.
+    function Window:CreateSettings()
         local Settings = Window:CreateTab("Settings", "gear")
+
         Settings:Section("THEME COLOR")
-
-        local currentColor = COLOR.red
-
-        local function makeRGBSlider(parent, title, initial, onChanged)
-            local holder = New("Frame", {
-                Size = UDim2.new(1, 0, 0, 54),
-                BackgroundColor3 = COLOR.innerBg,
-                BorderSizePixel = 0,
-                ZIndex = 30,
-            }, parent)
-            Corner(holder, 10)
-            local st = Stroke(holder, COLOR.innerBorder, 1.2, 0.05)
-
-            local label = New("TextLabel", {
-                Position = UDim2.fromOffset(12, 7),
-                Size = UDim2.new(1, -70, 0, 16),
-                BackgroundTransparency = 1,
-                Text = title,
-                Font = Enum.Font.GothamMedium,
-                TextSize = 12,
-                TextColor3 = COLOR.white,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                ZIndex = 35,
-            }, holder)
-
-            local valueLabel = New("TextLabel", {
-                AnchorPoint = Vector2.new(1, 0),
-                Position = UDim2.new(1, -12, 0, 7),
-                Size = UDim2.fromOffset(40, 16),
-                BackgroundTransparency = 1,
-                Text = tostring(initial),
-                Font = Enum.Font.GothamBold,
-                TextSize = 11,
-                TextColor3 = COLOR.redSoft,
-                TextXAlignment = Enum.TextXAlignment.Right,
-                ZIndex = 35,
-            }, holder)
-
-            local bar = New("Frame", {
-                Position = UDim2.new(0, 12, 0, 32),
-                Size = UDim2.new(1, -24, 0, 8),
-                BackgroundColor3 = COLOR.switchOff,
-                BorderSizePixel = 0,
-                Active = true,
-                ZIndex = 35,
-            }, holder)
-            Corner(bar, 4)
-
-            local fill = New("Frame", {
-                Size = UDim2.new(math.clamp(initial / 255, 0, 1), 0, 1, 0),
-                BackgroundColor3 = COLOR.red,
-                BorderSizePixel = 0,
-                ZIndex = 36,
-            }, bar)
-            Corner(fill, 4)
-
-            local dragging = false
-            local value = initial
-
-            local function setFromX(x)
-                local pct = math.clamp((x - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
-                value = math.floor(pct * 255 + 0.5)
-                fill.Size = UDim2.new(pct, 0, 1, 0)
-                valueLabel.Text = tostring(value)
-                onChanged(value)
-            end
-
-            bar.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                    or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = true
-                    setFromX(input.Position.X)
-                end
-            end)
-
-            bar.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                    or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = false
-                end
-            end)
-
-            UIS.InputChanged:Connect(function(input)
-                if not dragging then return end
-                if input.UserInputType == Enum.UserInputType.MouseMovement
-                    or input.UserInputType == Enum.UserInputType.Touch then
-                    setFromX(input.Position.X)
-                end
-            end)
-
-            table.insert(ThemedFill, {Obj = holder, Shade = "innerBg"})
-            table.insert(ThemedStroke, {Obj = st, Shade = "innerBorder"})
-            table.insert(ThemedText, {Obj = label, Shade = "white"})
-            table.insert(ThemedText, {Obj = valueLabel, Shade = "redSoft"})
-            table.insert(ThemedFill, {Obj = fill, Shade = "red"})
-
-            return holder
-        end
-
-        local r, g, b = 235, 30, 52
-
-        local function applyRGB()
-            currentColor = Color3.fromRGB(r, g, b)
-            Actions.SetThemeColor(currentColor)
-        end
-
-        makeRGBSlider(Settings.Page, "RED", r, function(v)
-            r = v
-            applyRGB()
+        Settings:Button("RED", function()
+            self:SetThemeColor(Color3.fromRGB(235, 30, 52))
         end)
-
-        makeRGBSlider(Settings.Page, "GREEN", g, function(v)
-            g = v
-            applyRGB()
+        Settings:Button("BLUE", function()
+            self:SetThemeColor(Color3.fromRGB(45, 110, 255))
         end)
-
-        makeRGBSlider(Settings.Page, "BLUE", b, function(v)
-            b = v
-            applyRGB()
+        Settings:Button("GREEN", function()
+            self:SetThemeColor(Color3.fromRGB(40, 220, 110))
+        end)
+        Settings:Button("PURPLE", function()
+            self:SetThemeColor(Color3.fromRGB(150, 80, 255))
+        end)
+        Settings:Button("CYAN", function()
+            self:SetThemeColor(Color3.fromRGB(30, 210, 230))
+        end)
+        Settings:Button("GOLD", function()
+            self:SetThemeColor(Color3.fromRGB(245, 180, 40))
         end)
 
         Settings:Section("INTERFACE")
-
-        Settings:Button("Delete GUI", function()
+        Settings:Button("Open Panel", function()
+            OpenPanel()
+        end)
+        Settings:Button("Close Panel", function()
+            ClosePanel()
+        end)
+        Settings:Button("DELETE GUI", function()
             if Gui and Gui.Parent then
                 Gui:Destroy()
             end
         end)
+
+        return Settings
     end
 
     return Window
