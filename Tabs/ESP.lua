@@ -1,10 +1,10 @@
 return function(Window)
-    local Tab = Window:CreateTab("ESP", "V")
+    local Tab = Window:CreateTab("Egg", "E")
 
-    Tab:Section("ESP")
+    Tab:Section("EGG")
 
-    Tab:Toggle("ESP", false, function(state)
-        print("[DXPanel] ESP:", state)
+    Tab:Button("Test Egg", function()
+        print("[DXPanel] Egg tab")
     end)
 
     return Tab
