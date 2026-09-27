@@ -2192,6 +2192,13 @@ function DXPanelAPI:CreateTab(name, icon)
 
     local page = CreatePage(name)
     local button = CreateTab(name, icon or "")
+
+    -- External GitHub tabs must be clickable immediately.
+    -- The built-in tab connection loop runs before these tabs exist.
+    button.MouseButton1Click:Connect(function()
+        ActivateTab(name)
+    end)
+
     return {
         Page = page,
         Button = button,
