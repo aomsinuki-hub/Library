@@ -1,65 +1,164 @@
--- Loader.lua
--- Loader จะโหลด Core + Library systems + สแกน Tabs จาก GitHub อัตโนมัติ
---
--- เพิ่ม Tab ใหม่:
---   สร้างไฟล์ .lua ในโฟลเดอร์ Tabs บน GitHub
---   แล้ว return function(Window) ... end
--- ไม่ต้องแก้ Loader.lua
+--[[
+    DXPanel Loader
+    ------------------------------------------------
+    โครงสร้าง GitHub ที่รองรับ:
+
+    Library/
+    ├─ Loader.lua
+    ├─ Library/
+    │  ├─ DXPanelLib.lua
+    │  ├─ Overview.lua
+    │  ├─ EggESP.lua
+    │  └─ Settings.lua
+    └─ Tabs/
+       ├─ Main.lua
+       ├─ Farm.lua
+       ├─ Egg.lua
+       └─ ESP.lua
+
+    เพิ่ม Tab ใหม่:
+      1. สร้างไฟล์ .lua ใน Tabs/
+      2. ให้ไฟล์ return function(Window) ... end
+      3. ไม่ต้องแก้ Loader.lua
+--]]
 
 local BASE = "https://raw.githubusercontent.com/aomsinuki-hub/Library/refs/heads/main/"
 local API  = "https://api.github.com/repos/aomsinuki-hub/Library/contents/"
 
+local function log(...)
+    print("[DXPanel]", ...)
+end
+
+local function warnx(...)
+    warn("[DXPanel]", ...)
+end
+
 local function http(url)
     assert(game and game.HttpGet, "HttpGet is not available")
-    return game:HttpGet(url)
+    local ok, result = pcall(function()
+        return game:HttpGet(url)
+    end)
+
+    if not ok then
+        error("HttpGet failed: " .. tostring(result))
+    end
+
+    return result
+end
+
+local function loadSource(url)
+    local source = http(url)
+
+    if type(source) ~= "string" or source == "" then
+        error("Empty source: " .. url)
+    end
+
+    local fn, err = loadstring(source)
+
+    if not fn then
+        error("loadstring failed: " .. tostring(err))
+    end
+
+    return fn
 end
 
 local function run(url, ...)
-    local source = http(url)
-    local fn, err = loadstring(source)
-    assert(fn, "Load error: " .. tostring(err))
+    local fn = loadSource(url)
     return fn(...)
 end
 
--- Core
-local DXPanel = run(BASE .. "Library/DXPanelLib.lua")
+local function runOptional(label, url, ...)
+    local ok, result = pcall(function()
+        return run(url, ...)
+    end)
 
-local Window = DXPanel.new({
-    Name = "DXPanel",
-    Title = "DX",
-    Subtitle = "PANEL",
-    Description = "DXPanel Premium Interface",
-    Size = {
-        defW = 720,
-        defH = 460,
-        minW = 400,
-        minH = 260,
-        maxW = 900,
-        maxH = 650,
-    },
-})
+    if ok then
+        log(label .. " loaded")
+        return true, result
+    end
 
--- Overview ต้องอยู่บนสุด
-run(BASE .. "Library/Overview.lua")(Window)
+    warnx(label .. " failed:", result)
+    return false, nil
+end
 
--- สแกน Tabs ใน GitHub อัตโนมัติ
-local function loadTabs()
+-- =========================================================
+-- 1. Core
+-- =========================================================
+
+local okCore, DXPanel = pcall(function()
+    return run(BASE .. "Library/DXPanelLib.lua")
+end)
+
+if not okCore or not DXPanel then
+    error("[DXPanel] DXPanelLib.lua โหลดไม่สำเร็จ: " .. tostring(DXPanel))
+end
+
+log("DXPanelLib loaded")
+
+-- =========================================================
+-- 2. Create Window
+-- =========================================================
+
+local okWindow, Window = pcall(function()
+    return DXPanel.new({
+        Name = "DXPanel",
+        Title = "DX",
+        Subtitle = "PANEL",
+        Description = "DXPanel Premium Interface",
+
+        Size = {
+            defW = 720,
+            defH = 460,
+            minW = 400,
+            minH = 260,
+            maxW = 900,
+            maxH = 650,
+        },
+    })
+end)
+
+if not okWindow or not Window then
+    error("[DXPanel] สร้าง Window ไม่สำเร็จ: " .. tostring(Window))
+end
+
+log("Window created")
+
+-- =========================================================
+-- 3. Overview — ต้องเป็น Tab แรก
+-- =========================================================
+
+runOptional(
+    "Overview",
+    BASE .. "Library/Overview.lua",
+    Window
+)
+
+-- =========================================================
+-- 4. Auto Scan Tabs
+-- =========================================================
+
+local function scanTabs()
     local HttpService = game:GetService("HttpService")
+
     local raw = http(API .. "Tabs?ref=main")
 
-    local ok, list = pcall(function()
+    local okJSON, list = pcall(function()
         return HttpService:JSONDecode(raw)
     end)
 
-    if not ok or type(list) ~= "table" then
-        warn("[DXPanel] GitHub Tabs scan failed")
-        return
+    if not okJSON then
+        error("GitHub API JSON decode failed: " .. tostring(list))
+    end
+
+    if type(list) ~= "table" then
+        error("GitHub API returned invalid data")
     end
 
     local files = {}
 
     for _, item in ipairs(list) do
-        if item.type == "file"
+        if type(item) == "table"
+            and item.type == "file"
             and type(item.name) == "string"
             and item.name:lower():sub(-4) == ".lua"
         then
@@ -71,25 +170,69 @@ local function loadTabs()
         return a:lower() < b:lower()
     end)
 
-    for _, name in ipairs(files) do
-        local okTab, result = pcall(function()
-            return run(BASE .. "Tabs/" .. name, Window)
-        end)
+    log("Found " .. tostring(#files) .. " Tab file(s)")
 
-        if not okTab then
-            warn("[DXPanel] Failed tab:", name, result)
+    for _, name in ipairs(files) do
+        -- กันไม่ให้ไฟล์พิเศษถูกโหลดซ้ำ
+        local lower = name:lower()
+
+        if lower ~= "overview.lua"
+            and lower ~= "setting.lua"
+            and lower ~= "settings.lua"
+            and lower ~= "eggESP.lua"
+        then
+            local okTab, err = pcall(function()
+                run(BASE .. "Tabs/" .. name, Window)
+            end)
+
+            if okTab then
+                log("Tab loaded:", name)
+            else
+                warnx("Tab failed:", name, err)
+            end
         end
     end
 end
 
-loadTabs()
+local okScan, scanErr = pcall(scanTabs)
 
--- Egg ESP เป็น Library system แยก
-run(BASE .. "Library/EggESP.lua")(Window)
+if not okScan then
+    warnx("Tab scan failed:", scanErr)
+    warnx("ตรวจว่า GitHub repo มีโฟลเดอร์ Tabs และเปิดการเข้าถึง GitHub API ได้")
+end
 
--- Settings ต้องอยู่ล่างสุด
-run(BASE .. "Library/Settings.lua")(Window)
+-- =========================================================
+-- 5. Library Systems
+-- =========================================================
 
-Window:Open()
+runOptional(
+    "Egg ESP",
+    BASE .. "Library/EggESP.lua",
+    Window
+)
+
+-- =========================================================
+-- 6. Settings — ต้องเป็น Tab สุดท้าย
+-- =========================================================
+
+runOptional(
+    "Settings",
+    BASE .. "Library/Settings.lua",
+    Window
+)
+
+-- =========================================================
+-- 7. Open
+-- =========================================================
+
+local okOpen, openErr = pcall(function()
+    Window:Open()
+end)
+
+if not okOpen then
+    warnx("Window:Open() failed:", openErr)
+else
+    log("DXPanel opened")
+end
 
 return Window
