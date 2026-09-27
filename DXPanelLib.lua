@@ -536,31 +536,25 @@ New("Frame", {
     ZIndex = 15,
 }, Sidebar)
 
+-- Single non-overlapping logo/title label.
+-- RichText keeps DX red and Panel white without creating two labels
+-- at overlapping positions.
 local DXTitle = New("TextLabel", {
-    Position = UDim2.new(0, 15, 0, 15),
-    Size = UDim2.new(1, -30, 0, 28),
+    Position = UDim2.new(0, 15, 0, 12),
+    Size = UDim2.new(1, -30, 0, 38),
     BackgroundTransparency = 1,
-    Text = TITLE_TEXT,
+    Text = '<font color="rgb(235,30,52)">' .. tostring(TITLE_TEXT) .. '</font> <font color="rgb(245,245,250)">' .. tostring(SUBTITLE_TEXT) .. '</font>',
+    RichText = true,
     Font = Enum.Font.GothamBlack,
     TextSize = 26,
-    TextColor3 = COLOR.red,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    ZIndex = 20,
-}, Sidebar)
-
-RegisterText(DXTitle, "red")
-
-New("TextLabel", {
-    Position = UDim2.new(0, 52, 0, 18),
-    Size = UDim2.new(1, -60, 0, 22),
-    BackgroundTransparency = 1,
-    Text = SUBTITLE_TEXT,
-    Font = Enum.Font.GothamBold,
-    TextSize = 11,
     TextColor3 = COLOR.white,
     TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center,
     ZIndex = 20,
 }, Sidebar)
+
+-- Do not register this RichText label in the theme registry; its two
+-- embedded colors are intentional.
 
 local LogoLine = New("Frame", {
     Position = UDim2.new(0, 15, 0, 49),
@@ -2973,6 +2967,32 @@ end)
     -- Fully removes the panel and its floating toggle from PlayerGui.
     function Window:Destroy()
         Gui:Destroy()
+    end
+
+    --========================================================
+    -- BUILT-IN TABS
+    -- Overview and Settings belong to the Library itself.
+    -- External GitHub scripts should only create their own tabs.
+    --========================================================
+
+    do
+        local Overview = Window:CreateTab("Overview", "house")
+        Overview:Section("DX PANEL")
+        Overview:Button("Library loaded", function()
+            print("DXPanel Library loaded")
+        end)
+
+        local Settings = Window:CreateTab("Settings", "gear")
+        Settings:Section("PANEL SETTINGS")
+        Settings:Toggle("Neon Pulse", true, function(state)
+            Actions.SetPulse(state)
+        end)
+        Settings:Button("Open Panel", function()
+            OpenPanel()
+        end)
+        Settings:Button("Close Panel", function()
+            ClosePanel()
+        end)
     end
 
     return Window
