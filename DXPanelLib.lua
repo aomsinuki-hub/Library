@@ -878,6 +878,8 @@ end
 -- TAB
 --============================================================
 
+local ActivateTab
+
 local function CreateTab(name, icon)
     local Button = New("TextButton", {
         Size = UDim2.new(1, 0, 0, 36),
@@ -1043,10 +1045,15 @@ local function CreateTab(name, icon)
         end
     end)
 
+    -- Activated works for mouse, touch, and gamepad.
+    Button.Activated:Connect(function()
+        ActivateTab(name)
+    end)
+
     return Button
 end
 
-local function ActivateTab(name)
+ActivateTab = function(name)
     for tabName, tab in pairs(Tabs) do
         local active = tabName == name
 
@@ -1785,7 +1792,9 @@ do
 end
 
 --============================================================
+--============================================================
 -- SETTINGS
+-- Deferred so Loader can place Settings after GitHub tabs.
 --============================================================
 
 local function CreateSettings()
@@ -1793,452 +1802,186 @@ local function CreateSettings()
         return Pages["Settings"]
     end
 
-    local Settings = CreatePage("Settings")
+        local Settings = CreatePage("Settings")
 
-    -- ICON 2
-    CreateTab(
-        "Settings",
-        "78494414238159"
-    )
+        CreateTab("Settings", "78494414238159")
 
-    Section(
-        Settings,
-        "GENERAL"
-    )
+        local function Card(title, desc)
+            local Box = New("Frame", {
+                Size = UDim2.new(1, 0, 0, 0),
+                AutomaticSize = Enum.AutomaticSize.Y,
+                BackgroundColor3 = COLOR.innerBg,
+                BorderSizePixel = 0,
+                ZIndex = 50,
+            }, Settings)
 
-    Button(
-        Settings,
-        "Initialize",
-        function()
-            print("[DX] Initialize")
-        end
-    )
+            Corner(Box, 12)
+            local BoxStroke = Stroke(Box, COLOR.innerBorder, 1.5, 0)
+            RegisterStroke(BoxStroke, "innerBorder")
 
-    Button(
-        Settings,
-        "Refresh Interface",
-        function()
-            Actions.Refit()
-        end
-    )
+            Gradient(Box, ColorSequence.new({
+                ColorSequenceKeypoint.new(0, COLOR.innerBgHover),
+                ColorSequenceKeypoint.new(1, COLOR.innerBg),
+            }), 90)
 
-    Section(
-        Settings,
-        "STATUS"
-    )
+            New("UIPadding", {
+                PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14),
+                PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 12),
+            }, Box)
 
-    Toggle(
-        Settings,
-        "Enable Interface",
-        true,
-        function(on)
-            print(
-                "[DX] Enable Interface:",
-                on
-            )
-        end
-    )
+            New("UIListLayout", {
+                Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder,
+            }, Box)
 
-    Toggle(
-        Settings,
-        "Premium Effects",
-        true,
-        function(on)
-            Actions.SetPulse(on)
-        end
-    )
+            New("TextLabel", {
+                Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1,
+                Text = title, Font = Enum.Font.GothamBold, TextSize = 14,
+                TextColor3 = COLOR.white, TextXAlignment = Enum.TextXAlignment.Left,
+                LayoutOrder = 1, ZIndex = 55,
+            }, Box)
 
-    Section(
-        Settings,
-        "PANEL"
-    )
-
-    Button(
-        Settings,
-        "Compact Mode",
-        function()
-            FitPanel(
-                SIZE.minW,
-                SIZE.minH,
-                false
-            )
-        end
-    )
-
-    Button(
-        Settings,
-        "Reset Size",
-        function()
-            FitPanel(
-                SIZE.defW,
-                SIZE.defH,
-                false
-            )
-        end
-    )
-
-    Button(
-        Settings,
-        "Reset Interface",
-        function()
-            FitPanel(
-                SIZE.defW,
-                SIZE.defH,
-                true
-            )
-
-            ActivateTab("Overview")
-        end
-    )
-
-    Section(
-        Settings,
-        "THEME COLOR"
-    )
-
-    local function HexToColor3(hex)
-        hex = hex
-            :gsub("#", "")
-            :gsub("%s", "")
-
-        if #hex ~= 6 then
-            return nil
+            if desc then
+                New("TextLabel", {
+                    Size = UDim2.new(1, 0, 0, 17), BackgroundTransparency = 1,
+                    Text = desc, Font = Enum.Font.Gotham, TextSize = 10,
+                    TextColor3 = COLOR.grey, TextXAlignment = Enum.TextXAlignment.Left,
+                    LayoutOrder = 2, ZIndex = 55,
+                }, Box)
+            end
+            return Box
         end
 
-        local r = tonumber(
-            hex:sub(1, 2),
-            16
-        )
+        -- Theme Color
+        do
+            local ThemeCard = Card("Theme Color", "เปลี่ยนสีหลักของ DXPanel และองค์ประกอบที่ใช้ Theme")
 
-        local g = tonumber(
-            hex:sub(3, 4),
-            16
-        )
+            local ColorRow = New("Frame", {
+                Size = UDim2.new(1, 0, 0, 42), BackgroundTransparency = 1, LayoutOrder = 3,
+            }, ThemeCard)
 
-        local b = tonumber(
-            hex:sub(5, 6),
-            16
-        )
+            local ColorBox = New("Frame", {
+                Size = UDim2.new(1, -52, 1, 0), BackgroundColor3 = COLOR.sidebar,
+                BorderSizePixel = 0, ZIndex = 55,
+            }, ColorRow)
+            Corner(ColorBox, 10)
 
-        if not (r and g and b) then
-            return nil
-        end
+            local ColorBoxStroke = Stroke(ColorBox, COLOR.innerBorder, 1.5, 0)
+            local ColorBoxAccent = New("Frame", {
+                Position = UDim2.new(0, 8, 0, 6), Size = UDim2.new(0, 3, 1, -12),
+                BackgroundColor3 = COLOR.redBright, BorderSizePixel = 0, ZIndex = 60,
+            }, ColorBox)
+            Corner(ColorBoxAccent, 3)
+            RegisterFill(ColorBoxAccent, "redBright")
 
-        return Color3.fromRGB(
-            r,
-            g,
-            b
-        )
-    end
+            local ColorInput = New("TextBox", {
+                Position = UDim2.new(0, 20, 0, 0), Size = UDim2.new(1, -28, 1, 0),
+                BackgroundTransparency = 1, Text = "",
+                PlaceholderText = "#FF2D4B  หรือ  FF2D4B",
+                Font = Enum.Font.GothamMedium, TextSize = 11,
+                TextColor3 = COLOR.white, PlaceholderColor3 = COLOR.grey,
+                TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, ZIndex = 65,
+            }, ColorBox)
 
-    local ColorBox = New("Frame", {
-        Size = UDim2.new(1, 0, 0, 42),
-        BackgroundColor3 = COLOR.innerBg,
-        BorderSizePixel = 0,
-        ZIndex = 50,
-    }, Settings)
+            local Preview = New("TextButton", {
+                Position = UDim2.new(1, -42, 0, 0), Size = UDim2.fromOffset(42, 42),
+                BackgroundColor3 = COLOR.red, BorderSizePixel = 0, AutoButtonColor = false,
+                Text = "", LayoutOrder = 2, ZIndex = 65,
+            }, ColorRow)
+            Corner(Preview, 10)
+            Stroke(Preview, COLOR.innerBorder, 1.5, 0)
 
-    Corner(ColorBox, 10)
-
-    local ColorBoxStroke = Stroke(
-        ColorBox,
-        COLOR.innerBorder,
-        1.5,
-        0
-    )
-
-    local ColorBoxAccent = New("Frame", {
-        Position = UDim2.new(0, 8, 0, 6),
-        Size = UDim2.new(0, 3, 1, -12),
-        BackgroundColor3 = COLOR.redBright,
-        BorderSizePixel = 0,
-        ZIndex = 55,
-    }, ColorBox)
-
-    Corner(ColorBoxAccent, 3)
-
-    RegisterFill(
-        ColorBoxAccent,
-        "redBright"
-    )
-
-    local ColorInput = New("TextBox", {
-        Position = UDim2.new(0, 20, 0, 0),
-        Size = UDim2.new(1, -34, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "",
-        PlaceholderText =
-            "ใส่โค้ดสี เช่น FF2D4B แล้วกด Enter",
-        Font = Enum.Font.GothamMedium,
-        TextSize = 11,
-        TextColor3 = COLOR.white,
-        PlaceholderColor3 = COLOR.grey,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ClearTextOnFocus = false,
-        ZIndex = 60,
-    }, ColorBox)
-
-    ColorInput.FocusLost:Connect(
-        function(enterPressed)
-            if not enterPressed then
-                return
+            local function HexToColor3(hex)
+                hex = tostring(hex or ""):gsub("#", ""):gsub("%s", "")
+                if #hex ~= 6 then return nil end
+                local r = tonumber(hex:sub(1, 2), 16)
+                local g = tonumber(hex:sub(3, 4), 16)
+                local b = tonumber(hex:sub(5, 6), 16)
+                if not (r and g and b) then return nil end
+                return Color3.fromRGB(r, g, b)
             end
 
-            local c =
-                HexToColor3(
-                    ColorInput.Text
-                )
-
-            if c then
-                Actions.SetThemeColor(c)
-                ColorInput.Text = ""
-            else
-
-                Tween(
-                    ColorBoxStroke,
-                    0.1,
-                    {
-                        Color =
-                            Color3.fromRGB(
-                                220,
-                                40,
-                                60
-                            )
-                    }
-                )
-
-                task.wait(0.2)
-
-                Tween(
-                    ColorBoxStroke,
-                    0.2,
-                    {
-                        Color =
-                            COLOR.innerBorder
-                    }
-                )
-            end
-        end
-    )
-
-    local Presets = {
-        {
-            "แดง",
-            Color3.fromRGB(
-                235,
-                30,
-                52
-            )
-        },
-
-        {
-            "ฟ้า",
-            Color3.fromRGB(
-                30,
-                140,
-                235
-            )
-        },
-
-        {
-            "เขียว",
-            Color3.fromRGB(
-                40,
-                200,
-                120
-            )
-        },
-
-        {
-            "ม่วง",
-            Color3.fromRGB(
-                150,
-                60,
-                230
-            )
-        },
-
-        {
-            "ทอง",
-            Color3.fromRGB(
-                230,
-                175,
-                40
-            )
-        },
-    }
-
-    local PresetRow = New("Frame", {
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundTransparency = 1
-    }, Settings)
-
-    New("UIListLayout", {
-        FillDirection =
-            Enum.FillDirection.Horizontal,
-
-        Padding =
-            UDim.new(0, 8),
-
-        SortOrder =
-            Enum.SortOrder.LayoutOrder,
-    }, PresetRow)
-
-    for _, p in ipairs(Presets) do
-        local Swatch = New("TextButton", {
-            Size = UDim2.fromOffset(
-                34,
-                34
-            ),
-
-            BackgroundColor3 = p[2],
-
-            AutoButtonColor = false,
-
-            Text = "",
-
-            ZIndex = 50,
-        }, PresetRow)
-
-        Corner(
-            Swatch,
-            17
-        )
-
-        Stroke(
-            Swatch,
-            COLOR.border,
-            1.5,
-            0.2
-        )
-
-        Swatch.MouseEnter:Connect(
-            function()
-                Tween(
-                    Swatch,
-                    0.12,
-                    {
-                        Size =
-                            UDim2.fromOffset(
-                                38,
-                                38
-                            )
-                    }
-                )
-            end
-        )
-
-        Swatch.MouseLeave:Connect(
-            function()
-                Tween(
-                    Swatch,
-                    0.12,
-                    {
-                        Size =
-                            UDim2.fromOffset(
-                                34,
-                                34
-                            )
-                    }
-                )
-            end
-        )
-
-        Swatch.MouseButton1Click:Connect(
-            function()
-                Actions.SetThemeColor(
-                    p[2]
-                )
-            end
-        )
-    end
-
-    Section(
-        Settings,
-        "DANGER ZONE"
-    )
-
-    Button(
-        Settings,
-        "DELETE GUI",
-        function()
-            pcall(function()
-                if Gui and Gui.Parent then
-                    Gui:Destroy()
+            local function ApplyColor(c)
+                if not c then
+                    Tween(ColorBoxStroke, 0.1, {Color = Color3.fromRGB(220, 40, 60)})
+                    task.delay(0.25, function()
+                        if ColorBoxStroke.Parent then
+                            Tween(ColorBoxStroke, 0.2, {Color = COLOR.innerBorder})
+                        end
+                    end)
+                    return
                 end
+                Actions.SetThemeColor(c)
+                Preview.BackgroundColor3 = c
+                ColorInput.Text = ""
+            end
+
+            ColorInput.FocusLost:Connect(function(enterPressed)
+                if enterPressed then ApplyColor(HexToColor3(ColorInput.Text)) end
+            end)
+
+            local PresetRow = New("Frame", {
+                Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, LayoutOrder = 4,
+            }, ThemeCard)
+            New("UIListLayout", {
+                FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8),
+                SortOrder = Enum.SortOrder.LayoutOrder,
+            }, PresetRow)
+
+            local Presets = {
+                {"RED", Color3.fromRGB(235, 30, 52)},
+                {"BLUE", Color3.fromRGB(35, 125, 235)},
+                {"GREEN", Color3.fromRGB(35, 195, 115)},
+                {"PURPLE", Color3.fromRGB(145, 65, 235)},
+                {"GOLD", Color3.fromRGB(230, 170, 45)},
+                {"CYAN", Color3.fromRGB(25, 195, 215)},
+            }
+
+            for _, preset in ipairs(Presets) do
+                local Swatch = New("TextButton", {
+                    Size = UDim2.fromOffset(34, 34), BackgroundColor3 = preset[2],
+                    BorderSizePixel = 0, AutoButtonColor = false, Text = "", ZIndex = 55,
+                }, PresetRow)
+                Corner(Swatch, 17)
+                Stroke(Swatch, COLOR.border, 1.5, 0.15)
+                Swatch.MouseButton1Click:Connect(function()
+                    ApplyColor(preset[2])
+                    Preview.BackgroundColor3 = preset[2]
+                end)
+            end
+        end
+
+        -- Delete GUI
+        do
+            local DeleteCard = Card("Interface", "ลบ DXPanel และปุ่มเปิด/ปิดทั้งหมดออกจากหน้าจอ")
+
+            local DeleteButton = New("TextButton", {
+                Size = UDim2.new(1, 0, 0, 40),
+                BackgroundColor3 = Color3.fromRGB(45, 12, 18),
+                BorderSizePixel = 0, AutoButtonColor = false, Text = "DELETE GUI",
+                Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = COLOR.white,
+                LayoutOrder = 3, ZIndex = 55,
+            }, DeleteCard)
+            Corner(DeleteButton, 10)
+            Stroke(DeleteButton, Color3.fromRGB(190, 35, 55), 1.5, 0.15)
+
+            DeleteButton.MouseEnter:Connect(function()
+                Tween(DeleteButton, 0.15, {BackgroundColor3 = Color3.fromRGB(75, 15, 25)})
+            end)
+            DeleteButton.MouseLeave:Connect(function()
+                Tween(DeleteButton, 0.15, {BackgroundColor3 = Color3.fromRGB(45, 12, 18)})
+            end)
+            DeleteButton.MouseButton1Click:Connect(function()
+                Gui:Destroy()
             end)
         end
-    )
+
+    return Settings
 end
-
-
---============================================================
-
 
 if not rawget(_G, "DXPanelDeferSettings") then
     CreateSettings()
 end
 
---============================================================
--- EXTERNAL TAB API
---============================================================
-local DXPanelAPI = {}
-
-function DXPanelAPI:CreateTab(name, icon)
-    name = tostring(name or "Tab")
-    if name == "Overview" or name == "Settings" then
-        return nil, "Reserved tab name"
-    end
-
-    local page = CreatePage(name)
-    local button = CreateTab(name, icon or "")
-
-    -- External GitHub tabs must be clickable immediately.
-    -- The built-in tab connection loop runs before these tabs exist.
-    button.MouseButton1Click:Connect(function()
-        ActivateTab(name)
-    end)
-
-    return {
-        Page = page,
-        Button = button,
-        Name = name,
-
-        AddButton = function(_, title, callback)
-            return Button(page, title, callback)
-        end,
-
-        AddToggle = function(_, title, default, callback)
-            return Toggle(page, title, default, callback)
-        end,
-
-        AddSection = function(_, title)
-            return Section(page, title)
-        end,
-
-        AddSlider = function(_, title, min, max, default, callback)
-            return Slider(page, title, min, max, default, callback)
-        end,
-
-        AddInput = function(_, title, default, callback)
-            return Input(page, title, default, callback)
-        end,
-    }
-end
-
-function DXPanelAPI:CreateSettings()
-    return CreateSettings()
-end
-
-function DXPanelAPI:GetPage(name)
-    return Pages[name]
-end
-
-function DXPanelAPI:ActivateTab(name)
-    return ActivateTab(name)
-end
-
---============================================================
 -- TAB CONNECTIONS
 --============================================================
 
@@ -3308,11 +3051,88 @@ task.spawn(function()
 end)
 
 --============================================================
+-- PUBLIC API
+--============================================================
+local DXPanelAPI = {}
+
+function DXPanelAPI:CreateTab(name, icon)
+    name = tostring(name or "Tab")
+
+    if name == "Overview" or name == "Settings" then
+        return nil, "Reserved tab name"
+    end
+
+    local page = CreatePage(name)
+    CreateTab(name, icon or "")
+
+    return {
+        Name = name,
+        Page = page,
+
+        Section = function(_, text)
+            return Section(page, text)
+        end,
+
+        Button = function(_, text, callback)
+            return Button(page, text, callback)
+        end,
+
+        Toggle = function(_, text, default, callback)
+            return Toggle(page, text, default, callback)
+        end,
+
+        AddSection = function(_, text)
+            return Section(page, text)
+        end,
+
+        AddButton = function(_, text, callback)
+            return Button(page, text, callback)
+        end,
+
+        AddToggle = function(_, text, default, callback)
+            return Toggle(page, text, default, callback)
+        end,
+    }
+end
+
+function DXPanelAPI:CreateSettings()
+    return CreateSettings()
+end
+
+function DXPanelAPI:ActivateTab(name)
+    return ActivateTab(name)
+end
+
+function DXPanelAPI:SetThemeColor(color3)
+    return Actions.SetThemeColor(color3)
+end
+
+function DXPanelAPI:SetPulse(on)
+    return Actions.SetPulse(on)
+end
+
+function DXPanelAPI:Refit()
+    return Actions.Refit()
+end
+
+function DXPanelAPI:Open()
+    return OpenPanel()
+end
+
+function DXPanelAPI:Close()
+    return ClosePanel()
+end
+
+function DXPanelAPI:Destroy()
+    if Gui and Gui.Parent then
+        Gui:Destroy()
+    end
+end
+
+--============================================================
 -- LOADED
 --============================================================
 
 print(
     "[DXPanel] Loaded successfully (theme-color v3)"
 )
-
-return DXPanelAPI
