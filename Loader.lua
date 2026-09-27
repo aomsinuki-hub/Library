@@ -7,6 +7,13 @@
 
 local LIB_URL = "https://raw.githubusercontent.com/aomsinuki-hub/Library/refs/heads/main/DXPanelLib.lua"
 
+-- Add GitHub TAB script URLs here.
+-- Each script must return: function(Window, Core)
+local TAB_URLS = {
+    -- "https://raw.githubusercontent.com/aomsinuki-hub/Library/refs/heads/main/Tabs/Main.lua",
+    -- "https://raw.githubusercontent.com/aomsinuki-hub/Library/refs/heads/main/Tabs/Farm.lua",
+}
+
 local function LoadRemote(url, name)
     assert(type(url) == "string" and url ~= "", "Missing URL: " .. tostring(name))
 
@@ -163,76 +170,32 @@ local Window = DXPanel.new({
 })
 
 --============================================================
--- AUTO-SCAN GITHUB TABS
+-- LOAD GITHUB TABS
 --============================================================
 
-local HttpService = game:GetService("HttpService")
-local TABS_API = "https://api.github.com/repos/aomsinuki-hub/Library/contents/Tabs"
-local TABS_RAW = "https://raw.githubusercontent.com/aomsinuki-hub/Library/refs/heads/main/Tabs/"
-
-local function GetTabFiles()
-    local ok, body = pcall(function()
-        return game:HttpGet(TABS_API)
-    end)
-
-    if not ok then
-        warn("[DXLoader] GitHub Tabs scan failed: " .. tostring(body))
-        return {}
-    end
-
-    local okJson, data = pcall(function()
-        return HttpService:JSONDecode(body)
-    end)
-
-    if not okJson or type(data) ~= "table" then
-        warn("[DXLoader] GitHub Tabs API returned invalid data")
-        return {}
-    end
-
-    local files = {}
-    for _, item in ipairs(data) do
-        if item.type == "file"
-            and type(item.name) == "string"
-            and item.name:sub(-4) == ".lua"
-        then
-            table.insert(files, item.name)
-        end
-    end
-
-    table.sort(files, function(a, b)
-        return a:lower() < b:lower()
-    end)
-
-    return files
-end
-
-for _, fileName in ipairs(GetTabFiles()) do
+for index, url in ipairs(TAB_URLS) do
     local ok, err = pcall(function()
-        local TabFactory = LoadRemote(
-            TABS_RAW .. fileName,
-            "Tab_" .. fileName
-        )
+        local TabFactory = LoadRemote(url, "Tab_" .. index)
 
-        assert(
-            type(TabFactory) == "function",
-            "Tab script must return function(Window, Core)"
-        )
+        assert(type(TabFactory) == "function", "Tab script must return function(Window, Core)")
 
+        -- The external script creates ONLY its own tab(s).
         TabFactory(Window, Core)
     end)
 
     if not ok then
-        warn(
-            "[DXLoader] Tab " .. fileName .. " failed: " .. tostring(err)
-        )
+        warn("[DXLoader] Tab " .. tostring(index) .. " failed: " .. tostring(err))
     end
 end
 
--- Settings is deliberately created LAST.
-if type(Window.CreateSettings) == "function" then
-    Window:CreateSettings()
-else
-    warn("[DXLoader] DXPanelLib.CreateSettings was not found")
+-- Settings is owned by DXPanelLib and is deliberately created LAST.
+if type(Window.CreateSettingsTab) == "function" then
+    local ok, err = pcall(function()
+        Window:CreateSettingsTab()
+    end)
+    if not ok then
+        warn("[DXLoader] Settings failed: " .. tostring(err))
+    end
 end
 
 _G.DXPanelLoader = {
