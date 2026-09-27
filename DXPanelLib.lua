@@ -1,26 +1,59 @@
 --============================================================
--- DXPanel NEON RED / BLACK — SIMPLE EDIT VERSION (+ Theme Color v3)
--- ICON UPDATED ONLY
+-- DXPanel LIBRARY — NEON RED / BLACK (ModuleScript version)
+--
+-- USAGE:
+--   local DXPanel = require(path.to.DXPanelLib)
+--   local Window  = DXPanel.new({
+--       Name        = "MyPanel",       -- ScreenGui name (unique per window)
+--       Title       = "DX",            -- big logo text top-left
+--       Subtitle    = "PANEL",         -- small text next to logo
+--       Description = "My Interface",  -- header subtitle text
+--       Size        = { defW = 600, defH = 370 }, -- optional, merges with defaults
+--   })
+--
+--   local Tab = Window:CreateTab("Settings", "gear")
+--   Tab:Section("GENERAL")
+--   Tab:Button("Click me", function() end)
+--   Tab:Toggle("Enable X", false, function(state) end)
+--   Tab:Dropdown("Mode", {"Easy","Hard"}, "Easy", function(choice) end)
+--
+--   Window:SetThemeColor(Color3.fromRGB(80, 140, 255))
+--   Window:SetPulse(true)
+--   Window:Destroy()
 --============================================================
 
-local Players       = game:GetService("Players")
-local UIS           = game:GetService("UserInputService")
-local TweenService  = game:GetService("TweenService")
+local DXPanel = {}
 
-local Player    = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
+function DXPanel.new(config)
+    config = config or {}
 
---============================================================
--- CONFIG
---============================================================
+    local Players       = game:GetService("Players")
+    local UIS           = game:GetService("UserInputService")
+    local TweenService  = game:GetService("TweenService")
 
-local SIZE = {
-    minW = 400, minH = 250,
-    maxW = 850, maxH = 560,
-    defW = 600, defH = 370,
-}
+    local Player    = Players.LocalPlayer
+    local PlayerGui = Player:WaitForChild("PlayerGui")
 
-local COLOR = {
+    --========================================================
+    -- CONFIG
+    --========================================================
+
+    local WINDOW_NAME      = config.Name or "DXPanel"
+    local TITLE_TEXT       = config.Title or "DX"
+    local SUBTITLE_TEXT    = config.Subtitle or "PANEL"
+    local DESCRIPTION_TEXT = config.Description or (WINDOW_NAME .. " Interface")
+    local TOGGLE_RICH_TEXT = config.ToggleText
+        or ('D<font color="rgb(255,60,80)">X</font>')
+
+    local userSize = config.Size or {}
+
+    local SIZE = {
+        minW = userSize.minW or 400, minH = userSize.minH or 250,
+        maxW = userSize.maxW or 850, maxH = userSize.maxH or 560,
+        defW = userSize.defW or 600, defH = userSize.defH or 370,
+    }
+
+    local COLOR = {
     red        = Color3.fromRGB(235, 30, 52),
     redBright  = Color3.fromRGB(255, 70, 90),
     redSoft    = Color3.fromRGB(255, 110, 125),
@@ -52,12 +85,13 @@ local Cfg = {
 
 local Actions = {}
 
-local ThemedButtons  = {}
-local ThemedToggles  = {}
-local ThemedFill     = {}
-local ThemedText     = {}
-local ThemedStroke   = {}
-local ThemedLineGrad = {}
+local ThemedButtons   = {}
+local ThemedToggles   = {}
+local ThemedDropdowns = {}
+local ThemedFill      = {}
+local ThemedText      = {}
+local ThemedStroke    = {}
+local ThemedLineGrad  = {}
 
 --============================================================
 -- HELPERS
@@ -251,14 +285,14 @@ end
 -- ROOT GUI
 --============================================================
 
-local old = PlayerGui:FindFirstChild("DXPanel")
+local old = PlayerGui:FindFirstChild(WINDOW_NAME)
 
 if old then
     old:Destroy()
 end
 
 local Gui = New("ScreenGui", {
-    Name = "DXPanel",
+    Name = WINDOW_NAME,
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
     DisplayOrder = 999,
@@ -506,7 +540,7 @@ local DXTitle = New("TextLabel", {
     Position = UDim2.new(0, 15, 0, 15),
     Size = UDim2.new(1, -30, 0, 28),
     BackgroundTransparency = 1,
-    Text = "DX",
+    Text = TITLE_TEXT,
     Font = Enum.Font.GothamBlack,
     TextSize = 26,
     TextColor3 = COLOR.red,
@@ -520,7 +554,7 @@ New("TextLabel", {
     Position = UDim2.new(0, 52, 0, 18),
     Size = UDim2.new(1, -60, 0, 22),
     BackgroundTransparency = 1,
-    Text = "PANEL",
+    Text = SUBTITLE_TEXT,
     Font = Enum.Font.GothamBold,
     TextSize = 11,
     TextColor3 = COLOR.white,
@@ -628,7 +662,7 @@ New("TextLabel", {
     Position = UDim2.new(0, 0, 0, 21),
     Size = UDim2.new(1, -55, 0, 14),
     BackgroundTransparency = 1,
-    Text = "DXPanel Premium Interface",
+    Text = DESCRIPTION_TEXT,
     Font = Enum.Font.Gotham,
     TextSize = 10,
     TextColor3 = COLOR.grey,
@@ -694,6 +728,8 @@ local PageHolder = New("Frame", {
 
 local Pages = {}
 local Tabs = {}
+local FirstTabName = nil
+local ActivateTab
 
 --============================================================
 -- PAGE
@@ -1043,10 +1079,19 @@ local function CreateTab(name, icon)
         end
     end)
 
+    Button.MouseButton1Click:Connect(function()
+        ActivateTab(name)
+    end)
+
+    if not FirstTabName then
+        FirstTabName = name
+        ActivateTab(name)
+    end
+
     return Button
 end
 
-local function ActivateTab(name)
+ActivateTab = function(name)
     for tabName, tab in pairs(Tabs) do
         local active = tabName == name
 
@@ -1499,485 +1544,265 @@ local function Toggle(parent, text, enabled, callback)
 end
 
 --============================================================
--- OVERVIEW
+-- DROPDOWN
 --============================================================
 
-do
-    local Overview = CreatePage("Overview")
+local function Dropdown(parent, text, options, default, callback)
+    options = options or {}
 
-    -- ICON 1
-    CreateTab(
-        "Overview",
-        "124620632231839"
-    )
+    local selected = default or options[1]
+    local open = false
 
-    Section(
-        Overview,
-        "OVERVIEW"
-    )
+    local function OptionsHeight()
+        local n = #options
+        if n == 0 then return 0 end
+        return (n * 30) + ((n - 1) * 4)
+    end
 
-    local Card = New("Frame", {
-        Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
+    local function ClosedHeight()
+        return 42
+    end
+
+    local function OpenedHeight()
+        return 42 + 8 + OptionsHeight()
+    end
+
+    local Holder = New("Frame", {
+        Size = UDim2.new(1, 0, 0, ClosedHeight()),
         BackgroundColor3 = COLOR.innerBg,
         BorderSizePixel = 0,
+        ClipsDescendants = true,
         ZIndex = 50,
-    }, Overview)
+    }, parent)
 
-    Corner(Card, 12)
+    Corner(Holder, 10)
 
-    Stroke(
-        Card,
+    local HolderStroke = Stroke(
+        Holder,
         COLOR.innerBorder,
         1.5,
         0
     )
 
-    Gradient(Card, ColorSequence.new({
-        ColorSequenceKeypoint.new(
-            0,
-            COLOR.innerBgHover
-        ),
-
-        ColorSequenceKeypoint.new(
-            1,
-            COLOR.innerBg
-        ),
-    }), 90)
-
-    New("UIPadding", {
-        PaddingLeft = UDim.new(0, 14),
-        PaddingRight = UDim.new(0, 14),
-        PaddingTop = UDim.new(0, 14),
-        PaddingBottom = UDim.new(0, 14),
-    }, Card)
-
-    New("UIListLayout", {
-        Padding = UDim.new(0, 12),
-        SortOrder = Enum.SortOrder.LayoutOrder
-    }, Card)
-
-    local HeaderRow = New("Frame", {
-        Size = UDim2.new(1, 0, 0, 64),
-        BackgroundTransparency = 1,
-        LayoutOrder = 1
-    }, Card)
-
-    local Avatar = New("ImageLabel", {
-        Size = UDim2.fromOffset(64, 64),
-        BackgroundColor3 = COLOR.black,
+    local Accent = New("Frame", {
+        Position = UDim2.new(0, 8, 0, 6),
+        Size = UDim2.new(0, 3, 0, 30),
+        BackgroundColor3 = COLOR.redBright,
         BorderSizePixel = 0,
         ZIndex = 55,
-    }, HeaderRow)
+    }, Holder)
 
-    Corner(Avatar, 32)
-
-    local AvatarStroke = Stroke(
-        Avatar,
-        COLOR.red,
-        2,
-        0
-    )
-
-    RegisterStroke(
-        AvatarStroke,
-        "red"
-    )
+    Corner(Accent, 3)
 
     New("TextLabel", {
-        Position = UDim2.new(0, 78, 0, 2),
-        Size = UDim2.new(1, -160, 0, 22),
+        Position = UDim2.new(0, 32, 0, 0),
+        Size = UDim2.new(1, -120, 0, 42),
         BackgroundTransparency = 1,
-        Text = Player.DisplayName,
-        Font = Enum.Font.GothamBold,
-        TextSize = 16,
+        Text = text,
+        Font = Enum.Font.GothamMedium,
+        TextSize = 11,
         TextColor3 = COLOR.white,
         TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 55,
-    }, HeaderRow)
+        ZIndex = 60,
+    }, Holder)
 
-    New("TextLabel", {
-        Position = UDim2.new(0, 78, 0, 25),
-        Size = UDim2.new(1, -160, 0, 16),
-        BackgroundTransparency = 1,
-        Text = "@" .. Player.Name,
-        Font = Enum.Font.Gotham,
-        TextSize = 11,
-        TextColor3 = COLOR.grey,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 55,
-    }, HeaderRow)
-
-    New("TextLabel", {
-        Position = UDim2.new(0, 78, 0, 45),
-        Size = UDim2.new(1, -160, 0, 14),
-        BackgroundTransparency = 1,
-        Text = "Account Age: " .. Player.AccountAge .. " days",
-        Font = Enum.Font.Gotham,
-        TextSize = 10,
-        TextColor3 = COLOR.grey,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 55,
-    }, HeaderRow)
-
-    local Badge = New("Frame", {
+    local ValueLabel = New("TextLabel", {
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, 0, 0, 4),
-        Size = UDim2.fromOffset(74, 20),
-        BackgroundColor3 = Color3.fromRGB(15, 35, 20),
-        BorderSizePixel = 0,
-        ZIndex = 55,
-    }, HeaderRow)
-
-    Corner(Badge, 10)
-
-    Stroke(
-        Badge,
-        Color3.fromRGB(60, 160, 80),
-        1,
-        0.2
-    )
-
-    local BadgeDot = New("Frame", {
-        Position = UDim2.new(0, 8, 0.5, -3),
-        Size = UDim2.fromOffset(6, 6),
-        BackgroundColor3 = Color3.fromRGB(100, 220, 125),
-        BorderSizePixel = 0,
-        ZIndex = 60,
-    }, Badge)
-
-    Corner(BadgeDot, 6)
-
-    New("TextLabel", {
-        Position = UDim2.new(0, 18, 0, 0),
-        Size = UDim2.new(1, -24, 1, 0),
+        Position = UDim2.new(1, -34, 0, 0),
+        Size = UDim2.new(0, 90, 0, 42),
         BackgroundTransparency = 1,
-        Text = "ONLINE",
+        Text = tostring(selected or "—"),
         Font = Enum.Font.GothamBold,
-        TextSize = 9,
-        TextColor3 = Color3.fromRGB(100, 220, 125),
-        TextXAlignment = Enum.TextXAlignment.Left,
+        TextSize = 11,
+        TextColor3 = COLOR.redSoft,
+        TextXAlignment = Enum.TextXAlignment.Right,
         ZIndex = 60,
-    }, Badge)
+    }, Holder)
 
-    task.spawn(function()
-        local ok, content = pcall(function()
-            return Players:GetUserThumbnailAsync(
-                Player.UserId,
-                Enum.ThumbnailType.HeadShot,
-                Enum.ThumbnailSize.Size180x180
-            )
-        end)
-
-        if ok then
-            Avatar.Image = content
-        end
-    end)
-
-    New("Frame", {
-        Size = UDim2.new(1, 0, 0, 1),
-        BackgroundColor3 = COLOR.border,
-        BackgroundTransparency = 0.4,
-        BorderSizePixel = 0,
-        LayoutOrder = 2,
-    }, Card)
-
-    local StatsHolder = New("Frame", {
-        Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
+    local Arrow = New("TextLabel", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -12, 0, 21),
+        Size = UDim2.fromOffset(14, 14),
         BackgroundTransparency = 1,
-        LayoutOrder = 3,
-    }, Card)
+        Text = "\226\150\190",
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextColor3 = COLOR.grey,
+        ZIndex = 60,
+    }, Holder)
+
+    local List = New("Frame", {
+        Position = UDim2.new(0, 0, 0, 46),
+        Size = UDim2.new(1, 0, 0, OptionsHeight()),
+        BackgroundTransparency = 1,
+        ZIndex = 55,
+    }, Holder)
 
     New("UIListLayout", {
-        Padding = UDim.new(0, 8),
-        SortOrder = Enum.SortOrder.LayoutOrder
-    }, StatsHolder)
+        Padding = UDim.new(0, 4),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, List)
 
-    local function StatRow(label)
-        local Row = New("Frame", {
-            Size = UDim2.new(1, 0, 0, 18),
-            BackgroundTransparency = 1
-        }, StatsHolder)
+    local SetOpen
 
-        local Dot = New("Frame", {
-            Position = UDim2.new(0, 2, 0.5, -3),
-            Size = UDim2.fromOffset(6, 6),
-            BackgroundColor3 = COLOR.redBright,
-            BorderSizePixel = 0,
-        }, Row)
+    local ClickArea = New("TextButton", {
+        Size = UDim2.new(1, 0, 0, 42),
+        BackgroundTransparency = 1,
+        AutoButtonColor = false,
+        Text = "",
+        ZIndex = 65,
+    }, Holder)
 
-        Corner(Dot, 6)
+    ClickArea.MouseButton1Click:Connect(function()
+        SetOpen(not open)
+    end)
 
-        RegisterFill(
-            Dot,
-            "redBright"
-        )
-
-        New("TextLabel", {
-            Position = UDim2.new(0, 16, 0, 0),
-            Size = UDim2.new(0.6, -16, 1, 0),
-            BackgroundTransparency = 1,
-            Text = label,
-            Font = Enum.Font.Gotham,
-            TextSize = 11,
-            TextColor3 = COLOR.grey,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        }, Row)
-
-        local Value = New("TextLabel", {
-            Position = UDim2.new(0.6, 0, 0, 0),
-            Size = UDim2.new(0.4, 0, 1, 0),
-            BackgroundTransparency = 1,
-            Text = "",
-            Font = Enum.Font.GothamMedium,
-            TextSize = 11,
-            TextColor3 = COLOR.white,
-            TextXAlignment = Enum.TextXAlignment.Right,
-        }, Row)
-
-        return Value
-    end
-
-    local PlayersValue = StatRow("Players Online")
-    local PingValue = StatRow("Ping")
-    local PlaceValue = StatRow("Place ID")
-
-    local function UpdatePlayers()
-        PlayersValue.Text =
-            #Players:GetPlayers()
-            .. " / "
-            .. Players.MaxPlayers
-    end
-
-    UpdatePlayers()
-
-    Players.PlayerAdded:Connect(
-        UpdatePlayers
-    )
-
-    Players.PlayerRemoving:Connect(
-        UpdatePlayers
-    )
-
-    PlaceValue.Text = tostring(
-        game.PlaceId
-    )
-
-    task.spawn(function()
-        local Stats = game:GetService("Stats")
-
-        while Card.Parent do
-            local ok, ping = pcall(function()
-                return Stats.Network.ServerStatsItem[
-                    "Data Ping"
-                ]:GetValue()
-            end)
-
-            PingValue.Text =
-                ok
-                and (math.floor(ping) .. " ms")
-                or "N/A"
-
-            task.wait(1)
+    Holder.MouseEnter:Connect(function()
+        if not open then
+            Tween(HolderStroke, 0.15, {
+                Color = COLOR.innerBorderHover
+            })
         end
     end)
-end
 
---============================================================
---============================================================
--- SETTINGS
---============================================================
+    Holder.MouseLeave:Connect(function()
+        if not open then
+            Tween(HolderStroke, 0.15, {
+                Color = COLOR.innerBorder
+            })
+        end
+    end)
 
-do
-    local Settings = CreatePage("Settings")
+    local optionButtons = {}
 
-    CreateTab("Settings", "78494414238159")
-
-    local function Card(title, desc)
-        local Box = New("Frame", {
-            Size = UDim2.new(1, 0, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
+    for i, opt in ipairs(options) do
+        local OptBtn = New("TextButton", {
+            Size = UDim2.new(1, 0, 0, 30),
             BackgroundColor3 = COLOR.innerBg,
             BorderSizePixel = 0,
-            ZIndex = 50,
-        }, Settings)
+            AutoButtonColor = false,
+            Text = "",
+            LayoutOrder = i,
+            ZIndex = 56,
+        }, List)
 
-        Corner(Box, 12)
-        local BoxStroke = Stroke(Box, COLOR.innerBorder, 1.5, 0)
-        RegisterStroke(BoxStroke, "innerBorder")
+        Corner(OptBtn, 8)
 
-        Gradient(Box, ColorSequence.new({
-            ColorSequenceKeypoint.new(0, COLOR.innerBgHover),
-            ColorSequenceKeypoint.new(1, COLOR.innerBg),
-        }), 90)
+        local OptStroke = Stroke(
+            OptBtn,
+            COLOR.innerBorder,
+            1,
+            0
+        )
 
-        New("UIPadding", {
-            PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14),
-            PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 12),
-        }, Box)
+        local OptLabel = New("TextLabel", {
+            Position = UDim2.new(0, 12, 0, 0),
+            Size = UDim2.new(1, -24, 1, 0),
+            BackgroundTransparency = 1,
+            Text = tostring(opt),
+            Font = Enum.Font.GothamMedium,
+            TextSize = 10,
+            TextColor3 = COLOR.grey,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 57,
+        }, OptBtn)
 
-        New("UIListLayout", {
-            Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder,
-        }, Box)
+        OptBtn.MouseEnter:Connect(function()
+            Tween(OptBtn, 0.12, {
+                BackgroundColor3 = COLOR.innerBgHover
+            })
 
-        New("TextLabel", {
-            Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1,
-            Text = title, Font = Enum.Font.GothamBold, TextSize = 14,
-            TextColor3 = COLOR.white, TextXAlignment = Enum.TextXAlignment.Left,
-            LayoutOrder = 1, ZIndex = 55,
-        }, Box)
+            Tween(OptStroke, 0.12, {
+                Color = COLOR.innerBorderHover
+            })
 
-        if desc then
-            New("TextLabel", {
-                Size = UDim2.new(1, 0, 0, 17), BackgroundTransparency = 1,
-                Text = desc, Font = Enum.Font.Gotham, TextSize = 10,
-                TextColor3 = COLOR.grey, TextXAlignment = Enum.TextXAlignment.Left,
-                LayoutOrder = 2, ZIndex = 55,
-            }, Box)
-        end
-        return Box
-    end
+            Tween(OptLabel, 0.12, {
+                TextColor3 = COLOR.white
+            })
+        end)
 
-    -- Theme Color
-    do
-        local ThemeCard = Card("Theme Color", "เปลี่ยนสีหลักของ DXPanel และองค์ประกอบที่ใช้ Theme")
+        OptBtn.MouseLeave:Connect(function()
+            Tween(OptBtn, 0.12, {
+                BackgroundColor3 = COLOR.innerBg
+            })
 
-        local ColorRow = New("Frame", {
-            Size = UDim2.new(1, 0, 0, 42), BackgroundTransparency = 1, LayoutOrder = 3,
-        }, ThemeCard)
+            Tween(OptStroke, 0.12, {
+                Color = COLOR.innerBorder
+            })
 
-        local ColorBox = New("Frame", {
-            Size = UDim2.new(1, -52, 1, 0), BackgroundColor3 = COLOR.sidebar,
-            BorderSizePixel = 0, ZIndex = 55,
-        }, ColorRow)
-        Corner(ColorBox, 10)
+            Tween(OptLabel, 0.12, {
+                TextColor3 = COLOR.grey
+            })
+        end)
 
-        local ColorBoxStroke = Stroke(ColorBox, COLOR.innerBorder, 1.5, 0)
-        local ColorBoxAccent = New("Frame", {
-            Position = UDim2.new(0, 8, 0, 6), Size = UDim2.new(0, 3, 1, -12),
-            BackgroundColor3 = COLOR.redBright, BorderSizePixel = 0, ZIndex = 60,
-        }, ColorBox)
-        Corner(ColorBoxAccent, 3)
-        RegisterFill(ColorBoxAccent, "redBright")
+        OptBtn.MouseButton1Click:Connect(function()
+            selected = opt
+            ValueLabel.Text = tostring(opt)
+            SetOpen(false)
 
-        local ColorInput = New("TextBox", {
-            Position = UDim2.new(0, 20, 0, 0), Size = UDim2.new(1, -28, 1, 0),
-            BackgroundTransparency = 1, Text = "",
-            PlaceholderText = "#FF2D4B  หรือ  FF2D4B",
-            Font = Enum.Font.GothamMedium, TextSize = 11,
-            TextColor3 = COLOR.white, PlaceholderColor3 = COLOR.grey,
-            TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, ZIndex = 65,
-        }, ColorBox)
-
-        local Preview = New("TextButton", {
-            Position = UDim2.new(1, -42, 0, 0), Size = UDim2.fromOffset(42, 42),
-            BackgroundColor3 = COLOR.red, BorderSizePixel = 0, AutoButtonColor = false,
-            Text = "", LayoutOrder = 2, ZIndex = 65,
-        }, ColorRow)
-        Corner(Preview, 10)
-        Stroke(Preview, COLOR.innerBorder, 1.5, 0)
-
-        local function HexToColor3(hex)
-            hex = tostring(hex or ""):gsub("#", ""):gsub("%s", "")
-            if #hex ~= 6 then return nil end
-            local r = tonumber(hex:sub(1, 2), 16)
-            local g = tonumber(hex:sub(3, 4), 16)
-            local b = tonumber(hex:sub(5, 6), 16)
-            if not (r and g and b) then return nil end
-            return Color3.fromRGB(r, g, b)
-        end
-
-        local function ApplyColor(c)
-            if not c then
-                Tween(ColorBoxStroke, 0.1, {Color = Color3.fromRGB(220, 40, 60)})
-                task.delay(0.25, function()
-                    if ColorBoxStroke.Parent then
-                        Tween(ColorBoxStroke, 0.2, {Color = COLOR.innerBorder})
-                    end
-                end)
-                return
+            if callback then
+                task.spawn(callback, opt)
             end
-            Actions.SetThemeColor(c)
-            Preview.BackgroundColor3 = c
-            ColorInput.Text = ""
-        end
-
-        ColorInput.FocusLost:Connect(function(enterPressed)
-            if enterPressed then ApplyColor(HexToColor3(ColorInput.Text)) end
         end)
 
-        local PresetRow = New("Frame", {
-            Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, LayoutOrder = 4,
-        }, ThemeCard)
-        New("UIListLayout", {
-            FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8),
-            SortOrder = Enum.SortOrder.LayoutOrder,
-        }, PresetRow)
+        table.insert(optionButtons, {
+            Btn = OptBtn,
+            Stroke = OptStroke,
+            Label = OptLabel,
+        })
+    end
 
-        local Presets = {
-            {"RED", Color3.fromRGB(235, 30, 52)},
-            {"BLUE", Color3.fromRGB(35, 125, 235)},
-            {"GREEN", Color3.fromRGB(35, 195, 115)},
-            {"PURPLE", Color3.fromRGB(145, 65, 235)},
-            {"GOLD", Color3.fromRGB(230, 170, 45)},
-            {"CYAN", Color3.fromRGB(25, 195, 215)},
-        }
+    SetOpen = function(state)
+        open = state
 
-        for _, preset in ipairs(Presets) do
-            local Swatch = New("TextButton", {
-                Size = UDim2.fromOffset(34, 34), BackgroundColor3 = preset[2],
-                BorderSizePixel = 0, AutoButtonColor = false, Text = "", ZIndex = 55,
-            }, PresetRow)
-            Corner(Swatch, 17)
-            Stroke(Swatch, COLOR.border, 1.5, 0.15)
-            Swatch.MouseButton1Click:Connect(function()
-                ApplyColor(preset[2])
-                Preview.BackgroundColor3 = preset[2]
-            end)
+        Tween(Holder, 0.2, {
+            Size = UDim2.new(
+                1, 0, 0,
+                open and OpenedHeight() or ClosedHeight()
+            )
+        }, Enum.EasingStyle.Quart)
+
+        Tween(Arrow, 0.2, {
+            Rotation = open and 180 or 0
+        })
+
+        Tween(HolderStroke, 0.2, {
+            Color = open and COLOR.redBright or COLOR.innerBorder,
+            Thickness = open and 1.7 or 1.5
+        })
+
+        Tween(Accent, 0.2, {
+            BackgroundColor3 = open and COLOR.redSoft or COLOR.redBright
+        })
+    end
+
+    table.insert(ThemedDropdowns, {
+        Holder = Holder,
+        Stroke = HolderStroke,
+        Accent = Accent,
+        ValueLabel = ValueLabel,
+        OptionButtons = optionButtons,
+        GetOpen = function() return open end,
+    })
+
+    local api = {}
+
+    function api.Get()
+        return selected
+    end
+
+    function api.Set(value, silent)
+        selected = value
+        ValueLabel.Text = tostring(value)
+
+        if callback and not silent then
+            task.spawn(callback, value)
         end
     end
 
-    -- Delete GUI
-    do
-        local DeleteCard = Card("Interface", "ลบ DXPanel และปุ่มเปิด/ปิดทั้งหมดออกจากหน้าจอ")
-
-        local DeleteButton = New("TextButton", {
-            Size = UDim2.new(1, 0, 0, 40),
-            BackgroundColor3 = Color3.fromRGB(45, 12, 18),
-            BorderSizePixel = 0, AutoButtonColor = false, Text = "DELETE GUI",
-            Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = COLOR.white,
-            LayoutOrder = 3, ZIndex = 55,
-        }, DeleteCard)
-        Corner(DeleteButton, 10)
-        Stroke(DeleteButton, Color3.fromRGB(190, 35, 55), 1.5, 0.15)
-
-        DeleteButton.MouseEnter:Connect(function()
-            Tween(DeleteButton, 0.15, {BackgroundColor3 = Color3.fromRGB(75, 15, 25)})
-        end)
-        DeleteButton.MouseLeave:Connect(function()
-            Tween(DeleteButton, 0.15, {BackgroundColor3 = Color3.fromRGB(45, 12, 18)})
-        end)
-        DeleteButton.MouseButton1Click:Connect(function()
-            Gui:Destroy()
-        end)
-    end
+    return Holder, api
 end
 
---============================================================
--- TAB CONNECTIONS
---============================================================
-============================================================
-
-for name, tab in pairs(Tabs) do
-    tab.Button.MouseButton1Click:Connect(
-        function()
-            ActivateTab(name)
-        end
-    )
-end
-
-ActivateTab("Overview")
 
 --============================================================
 -- DRAG SYSTEM
@@ -2245,7 +2070,7 @@ local ToggleLabel = New("TextLabel", {
     RichText = true,
 
     Text =
-        'D<font color="rgb(255,60,80)">X</font>',
+        TOGGLE_RICH_TEXT,
 
     Font =
         Enum.Font.GothamBlack,
@@ -2449,12 +2274,6 @@ ToggleButton.MouseLeave:Connect(
 --============================================================
 
 function Actions.SetThemeColor(newColor)
-    local oldPalette = {
-        red = COLOR.red, redBright = COLOR.redBright, redSoft = COLOR.redSoft,
-        redDark = COLOR.redDark, neon = COLOR.neon, black2 = COLOR.black2,
-        sidebar = COLOR.sidebar, sidebar2 = COLOR.sidebar2, innerBg = COLOR.innerBg,
-        innerBgHover = COLOR.innerBgHover, innerBorder = COLOR.innerBorder, border = COLOR.border,
-    }
     local h, s, v =
         Color3.toHSV(newColor)
 
@@ -2475,26 +2294,19 @@ function Actions.SetThemeColor(newColor)
             1
         )
 
-    -- Global palette: selected color controls the themed surfaces too.
-    COLOR.redDark = Color3.fromHSV(h, math.max(s, 0.35), 0.42)
-    COLOR.black2 = Color3.fromHSV(h, 0.25, 0.075)
-    COLOR.sidebar = Color3.fromHSV(h, 0.28, 0.060)
-    COLOR.sidebar2 = Color3.fromHSV(h, 0.32, 0.085)
-    COLOR.innerBg = Color3.fromHSV(h, 0.34, 0.105)
-    COLOR.innerBgHover = Color3.fromHSV(h, 0.40, 0.145)
-    COLOR.innerBorder = Color3.fromHSV(h, 0.42, 0.28)
-    COLOR.border = Color3.fromHSV(h, 0.30, 0.23)
-
     local seq =
         BuildNeonSequence(
             newColor
         )
 
     local shadeMap = {
-        red = newColor, redBright = COLOR.redBright, redSoft = COLOR.redSoft,
-        redDark = COLOR.redDark, neon = newColor, black2 = COLOR.black2,
-        sidebar = COLOR.sidebar, sidebar2 = COLOR.sidebar2, innerBg = COLOR.innerBg,
-        innerBgHover = COLOR.innerBgHover, innerBorder = COLOR.innerBorder, border = COLOR.border,
+        red = newColor,
+        redBright = COLOR.redBright,
+        redSoft = COLOR.redSoft,
+        neon = newColor,
+        innerBg = COLOR.innerBg,
+        innerBorder = Color3.fromHSV(h, 0.55, 0.42),
+        white = COLOR.white,
     }
 
     MainStroke.Color =
@@ -2652,6 +2464,54 @@ function Actions.SetThemeColor(newColor)
         end
     end
 
+    for _, d in ipairs(ThemedDropdowns) do
+
+        Tween(
+            d.ValueLabel,
+            0.2,
+            {
+                TextColor3 = COLOR.redSoft
+            }
+        )
+
+        if d.GetOpen() then
+
+            Tween(
+                d.Stroke,
+                0.2,
+                {
+                    Color = COLOR.redBright
+                }
+            )
+
+            Tween(
+                d.Accent,
+                0.2,
+                {
+                    BackgroundColor3 = COLOR.redSoft
+                }
+            )
+
+        else
+
+            Tween(
+                d.Stroke,
+                0.2,
+                {
+                    Color = COLOR.innerBorder
+                }
+            )
+
+            Tween(
+                d.Accent,
+                0.2,
+                {
+                    BackgroundColor3 = COLOR.redBright
+                }
+            )
+        end
+    end
+
     for _, e in ipairs(ThemedFill) do
 
         if e.Prop then
@@ -2708,44 +2568,6 @@ function Actions.SetThemeColor(newColor)
                 newColor
             )
     end
-    -- Recolor static objects that were created with the old palette.
-    local newPalette = {
-        red = COLOR.red, redBright = COLOR.redBright, redSoft = COLOR.redSoft,
-        redDark = COLOR.redDark, neon = COLOR.neon, black2 = COLOR.black2,
-        sidebar = COLOR.sidebar, sidebar2 = COLOR.sidebar2, innerBg = COLOR.innerBg,
-        innerBgHover = COLOR.innerBgHover, innerBorder = COLOR.innerBorder, border = COLOR.border,
-    }
-
-    for _, obj in ipairs(Gui:GetDescendants()) do
-        if obj:IsA("GuiObject") then
-            local bg = obj.BackgroundColor3
-            for key, oldColor in pairs(oldPalette) do
-                if bg == oldColor then
-                    obj.BackgroundColor3 = newPalette[key]
-                    break
-                end
-            end
-        end
-        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-            local tc = obj.TextColor3
-            for key, oldColor in pairs(oldPalette) do
-                if tc == oldColor then
-                    obj.TextColor3 = newPalette[key]
-                    break
-                end
-            end
-        end
-        if obj:IsA("UIStroke") then
-            local sc = obj.Color
-            for key, oldColor in pairs(oldPalette) do
-                if sc == oldColor then
-                    obj.Color = newPalette[key]
-                    break
-                end
-            end
-        end
-    end
-
 end
 
 --============================================================
@@ -3088,10 +2910,227 @@ task.spawn(function()
     end
 end)
 
---============================================================
--- LOADED
---============================================================
+    --========================================================
+    -- PUBLIC API
+    --========================================================
 
-print(
-    "[DXPanel] Loaded successfully (theme-color v3)"
-)
+    local Window = {
+        ScreenGui = Gui,
+        Root = Root,
+    }
+
+    -- Create a tab (sidebar entry + its own scrollable content page).
+    -- icon: "house" / "gear" (built-in vector icons), an image id/url,
+    -- or any short text string to use as a text icon.
+    function Window:CreateTab(name, icon)
+        local Page = CreatePage(name)
+        CreateTab(name, icon)
+
+        local Tab = {
+            Name = name,
+            Page = Page,
+        }
+
+        function Tab:Section(text)
+            return Section(self.Page, text)
+        end
+
+        function Tab:Button(text, callback)
+            return Button(self.Page, text, callback)
+        end
+
+        function Tab:Toggle(text, default, callback)
+            return Toggle(self.Page, text, default, callback)
+        end
+
+        function Tab:Dropdown(text, options, default, callback)
+            return Dropdown(self.Page, text, options, default, callback)
+        end
+
+        return Tab
+    end
+
+    -- Re-tint the whole panel (accent color, glows, active tab, etc).
+    function Window:SetThemeColor(color3)
+        Actions.SetThemeColor(color3)
+    end
+
+    -- Turn the ambient neon pulse animation on/off.
+    function Window:SetPulse(on)
+        Actions.SetPulse(on)
+    end
+
+    -- Re-apply current size/position (e.g. after the viewport changes).
+    function Window:Refit()
+        Actions.Refit()
+    end
+
+    function Window:Open()
+        OpenPanel()
+    end
+
+    function Window:Close()
+        ClosePanel()
+    end
+
+    -- Fully removes the panel and its floating toggle from PlayerGui.
+    function Window:Destroy()
+        Gui:Destroy()
+    end
+
+    --========================================================
+    -- BUILT-IN TABS
+    -- Overview and Settings belong to the Library itself.
+    -- External GitHub scripts should only create their own tabs.
+    --========================================================
+
+    do
+        --====================================================
+        -- BUILT-IN OVERVIEW
+        --====================================================
+        local Overview = Window:CreateTab("Overview", "house")
+        Overview:Section("DX PANEL")
+        Overview:Button("Library loaded", function()
+            print("DXPanel Library loaded")
+        end)
+
+        --====================================================
+        -- BUILT-IN SETTINGS
+        -- Theme color + Delete GUI only
+        --====================================================
+        local Settings = Window:CreateTab("Settings", "gear")
+        Settings:Section("THEME COLOR")
+
+        local currentColor = COLOR.red
+
+        local function makeRGBSlider(parent, title, initial, onChanged)
+            local holder = New("Frame", {
+                Size = UDim2.new(1, 0, 0, 54),
+                BackgroundColor3 = COLOR.innerBg,
+                BorderSizePixel = 0,
+                ZIndex = 30,
+            }, parent)
+            Corner(holder, 10)
+            local st = Stroke(holder, COLOR.innerBorder, 1.2, 0.05)
+
+            local label = New("TextLabel", {
+                Position = UDim2.fromOffset(12, 7),
+                Size = UDim2.new(1, -70, 0, 16),
+                BackgroundTransparency = 1,
+                Text = title,
+                Font = Enum.Font.GothamMedium,
+                TextSize = 12,
+                TextColor3 = COLOR.white,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 35,
+            }, holder)
+
+            local valueLabel = New("TextLabel", {
+                AnchorPoint = Vector2.new(1, 0),
+                Position = UDim2.new(1, -12, 0, 7),
+                Size = UDim2.fromOffset(40, 16),
+                BackgroundTransparency = 1,
+                Text = tostring(initial),
+                Font = Enum.Font.GothamBold,
+                TextSize = 11,
+                TextColor3 = COLOR.redSoft,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                ZIndex = 35,
+            }, holder)
+
+            local bar = New("Frame", {
+                Position = UDim2.new(0, 12, 0, 32),
+                Size = UDim2.new(1, -24, 0, 8),
+                BackgroundColor3 = COLOR.switchOff,
+                BorderSizePixel = 0,
+                Active = true,
+                ZIndex = 35,
+            }, holder)
+            Corner(bar, 4)
+
+            local fill = New("Frame", {
+                Size = UDim2.new(math.clamp(initial / 255, 0, 1), 0, 1, 0),
+                BackgroundColor3 = COLOR.red,
+                BorderSizePixel = 0,
+                ZIndex = 36,
+            }, bar)
+            Corner(fill, 4)
+
+            local dragging = false
+            local value = initial
+
+            local function setFromX(x)
+                local pct = math.clamp((x - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
+                value = math.floor(pct * 255 + 0.5)
+                fill.Size = UDim2.new(pct, 0, 1, 0)
+                valueLabel.Text = tostring(value)
+                onChanged(value)
+            end
+
+            bar.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = true
+                    setFromX(input.Position.X)
+                end
+            end)
+
+            bar.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = false
+                end
+            end)
+
+            UIS.InputChanged:Connect(function(input)
+                if not dragging then return end
+                if input.UserInputType == Enum.UserInputType.MouseMovement
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    setFromX(input.Position.X)
+                end
+            end)
+
+            table.insert(ThemedFill, {Obj = holder, Shade = "innerBg"})
+            table.insert(ThemedStroke, {Obj = st, Shade = "innerBorder"})
+            table.insert(ThemedText, {Obj = label, Shade = "white"})
+            table.insert(ThemedText, {Obj = valueLabel, Shade = "redSoft"})
+            table.insert(ThemedFill, {Obj = fill, Shade = "red"})
+
+            return holder
+        end
+
+        local r, g, b = 235, 30, 52
+
+        local function applyRGB()
+            currentColor = Color3.fromRGB(r, g, b)
+            Actions.SetThemeColor(currentColor)
+        end
+
+        makeRGBSlider(Settings.Page, "RED", r, function(v)
+            r = v
+            applyRGB()
+        end)
+
+        makeRGBSlider(Settings.Page, "GREEN", g, function(v)
+            g = v
+            applyRGB()
+        end)
+
+        makeRGBSlider(Settings.Page, "BLUE", b, function(v)
+            b = v
+            applyRGB()
+        end)
+
+        Settings:Section("INTERFACE")
+
+        Settings:Button("Delete GUI", function()
+            if Gui and Gui.Parent then
+                Gui:Destroy()
+            end
+        end)
+    end
+
+    return Window
+end
+
+return DXPanel
