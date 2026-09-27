@@ -581,14 +581,19 @@ task.spawn(function()
     end
 end)
 
-local TabHolder = New("Frame", {
+local TabHolder = New("ScrollingFrame", {
     Position = UDim2.new(0, 9, 0, 88),
     Size = UDim2.new(1, -18, 1, -98),
     BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 0,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollingDirection = Enum.ScrollingDirection.Y,
     ZIndex = 20,
 }, Sidebar)
 
-New("UIListLayout", {
+local TabLayout = New("UIListLayout", {
     Padding = UDim.new(0, 6),
     SortOrder = Enum.SortOrder.LayoutOrder
 }, TabHolder)
@@ -694,6 +699,7 @@ local PageHolder = New("Frame", {
 
 local Pages = {}
 local Tabs = {}
+local TabOrder = {}
 
 --============================================================
 -- PAGE
@@ -888,7 +894,7 @@ local function CreateTab(name, icon)
         BorderSizePixel = 0,
         AutoButtonColor = false,
         Text = "",
-        LayoutOrder = #Tabs + 1,
+        LayoutOrder = (#Tabs + 1),
         ZIndex = 30,
     }, TabHolder)
 
@@ -1020,6 +1026,20 @@ local function CreateTab(name, icon)
         IsCustom = isCustom,
         IconParts = iconParts
     }
+
+    table.insert(TabOrder, name)
+
+    -- Settings is always the final built-in tab.
+    local order = 1
+    for _, tabName in ipairs(TabOrder) do
+        if tabName ~= "Settings" and Tabs[tabName] then
+            Tabs[tabName].Button.LayoutOrder = order
+            order += 1
+        end
+    end
+    if Tabs["Settings"] then
+        Tabs["Settings"].Button.LayoutOrder = order
+    end
 
     Button.MouseEnter:Connect(function()
         if not Button:GetAttribute("Active") then
@@ -1985,14 +2005,8 @@ end
 -- TAB CONNECTIONS
 --============================================================
 
-for name, tab in pairs(Tabs) do
-    tab.Button.MouseButton1Click:Connect(
-        function()
-            ActivateTab(name)
-        end
-    )
-end
-
+-- Buttons use Activated inside CreateTab, which works on mouse/touch/gamepad.
+-- Keep only the initial page selection here.
 ActivateTab("Overview")
 
 --============================================================
@@ -3074,22 +3088,41 @@ function DXPanelAPI:CreateTab(name, icon)
         end,
 
         Button = function(_, text, callback)
+            if type(text) == "table" then
+                local cfg = text
+                return Button(page, cfg.Title or cfg.Name or "Button", cfg.Callback)
+            end
             return Button(page, text, callback)
         end,
 
         Toggle = function(_, text, default, callback)
+            if type(text) == "table" then
+                local cfg = text
+                return Toggle(page, cfg.Title or cfg.Name or "Toggle", cfg.Default == true or cfg.Value == true, cfg.Callback)
+            end
             return Toggle(page, text, default, callback)
         end,
 
         AddSection = function(_, text)
+            if type(text) == "table" then
+                text = text.Title or text.Name or "Section"
+            end
             return Section(page, text)
         end,
 
         AddButton = function(_, text, callback)
+            if type(text) == "table" then
+                local cfg = text
+                return Button(page, cfg.Title or cfg.Name or "Button", cfg.Callback)
+            end
             return Button(page, text, callback)
         end,
 
         AddToggle = function(_, text, default, callback)
+            if type(text) == "table" then
+                local cfg = text
+                return Toggle(page, cfg.Title or cfg.Name or "Toggle", cfg.Default == true or cfg.Value == true, cfg.Callback)
+            end
             return Toggle(page, text, default, callback)
         end,
     }
@@ -3136,3 +3169,6 @@ end
 print(
     "[DXPanel] Loaded successfully (theme-color v3)"
 )
+
+return DXPanelAPI
+
