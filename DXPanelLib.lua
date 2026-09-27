@@ -2977,57 +2977,228 @@ end)
 
     --========================================================
     -- BUILT-IN TABS
-    -- Overview is created first.
-    -- Settings is intentionally NOT created here.
-    -- The Loader creates Settings after all GitHub Tabs so it
-    -- always remains the last tab.
+    -- Overview belongs to the Library and is created first.
+    -- Settings is also owned by the Library, but is created
+    -- only when Window:CreateSettingsTab() is called by Loader.
+    -- This keeps Settings at the very bottom after GitHub tabs.
     --========================================================
 
     do
         local Overview = Window:CreateTab("Overview", "house")
+        Overview:Section("CHARACTER")
+
+        local card = New("Frame", {
+            Size = UDim2.new(1, 0, 0, 180),
+            BackgroundColor3 = COLOR.innerBg,
+            BorderSizePixel = 0,
+            ZIndex = 20,
+        }, Overview.Page)
+        Corner(card, 10)
+        Stroke(card, COLOR.innerBorder, 1.2, 0)
+        RegisterFill(card, "innerBg")
+        RegisterStroke(card, "innerBorder")
+
+        local vf = New("ViewportFrame", {
+            Position = UDim2.fromOffset(8, 8),
+            Size = UDim2.new(0.5, -12, 1, -16),
+            BackgroundColor3 = COLOR.black,
+            BorderSizePixel = 0,
+            Ambient = Color3.fromRGB(170, 170, 180),
+            LightColor = Color3.fromRGB(255, 255, 255),
+            LightDirection = Vector3.new(-1, -1, 1),
+            ZIndex = 21,
+        }, card)
+        Corner(vf, 8)
+        Stroke(vf, COLOR.red, 1, 0.6)
+
+        local cam = New("Camera", {
+            FieldOfView = 35,
+            CFrame = CFrame.new(Vector3.new(0, 0.3, -10), Vector3.new(0, -0.2, 0)),
+        }, vf)
+        vf.CurrentCamera = cam
+
+        local info = New("TextLabel", {
+            Position = UDim2.new(0.5, 4, 0, 8),
+            Size = UDim2.new(0.5, -12, 1, -82),
+            BackgroundTransparency = 1,
+            RichText = true,
+            TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            Font = Enum.Font.Gotham,
+            TextSize = 12,
+            TextColor3 = COLOR.grey,
+            Text = string.format(
+                '<font color="#F5F5FA" size="14"><b>%s</b></font>\n@%s\nID: %d',
+                Player.DisplayName, Player.Name, Player.UserId
+            ),
+            ZIndex = 22,
+        }, card)
+
+        local srv = New("Frame", {
+            AnchorPoint = Vector2.new(0, 1),
+            Position = UDim2.new(0.5, 4, 1, -8),
+            Size = UDim2.new(0.5, -12, 0, 58),
+            BackgroundTransparency = 1,
+            ZIndex = 22,
+        }, card)
+
+        New("Frame", {
+            Size = UDim2.new(1, 0, 0, 1),
+            BackgroundColor3 = COLOR.red,
+            BackgroundTransparency = 0.6,
+            BorderSizePixel = 0,
+            ZIndex = 23,
+        }, srv)
+
+        New("TextLabel", {
+            Position = UDim2.fromOffset(0, 8),
+            Size = UDim2.new(0.5, 0, 0, 20),
+            BackgroundTransparency = 1,
+            Text = "Players",
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Font = Enum.Font.Gotham,
+            TextSize = 12,
+            TextColor3 = COLOR.grey,
+            ZIndex = 23,
+        }, srv)
+
+        local playerCount = New("TextLabel", {
+            Position = UDim2.new(0.5, 0, 0, 8),
+            Size = UDim2.new(0.5, 0, 0, 20),
+            BackgroundTransparency = 1,
+            Text = "0 / 0",
+            TextXAlignment = Enum.TextXAlignment.Right,
+            Font = Enum.Font.GothamBold,
+            TextSize = 14,
+            TextColor3 = COLOR.red,
+            ZIndex = 23,
+        }, srv)
+
+        local bar = New("Frame", {
+            Position = UDim2.fromOffset(0, 38),
+            Size = UDim2.new(1, 0, 0, 6),
+            BackgroundColor3 = COLOR.switchOff,
+            BorderSizePixel = 0,
+            ZIndex = 23,
+        }, srv)
+        Corner(bar, 3)
+
+        local fill = New("Frame", {
+            Size = UDim2.fromScale(0, 1),
+            BackgroundColor3 = COLOR.red,
+            BorderSizePixel = 0,
+            ZIndex = 24,
+        }, bar)
+        Corner(fill, 3)
+
+        local function refreshPlayers()
+            local n = #Players:GetPlayers()
+            local m = math.max(Players.MaxPlayers, 1)
+            playerCount.Text = n .. " / " .. m
+            Tween(fill, 0.3, {
+                Size = UDim2.fromScale(math.clamp(n / m, 0, 1), 1)
+            }, Enum.EasingStyle.Quint)
+        end
+
+        refreshPlayers()
+        Players.PlayerAdded:Connect(function() task.defer(refreshPlayers) end)
+        Players.PlayerRemoving:Connect(function() task.delay(0.2, refreshPlayers) end)
+
+        local spinModel
+        local function clearModel()
+            for _, child in ipairs(vf:GetChildren()) do
+                if child:IsA("Model") then
+                    child:Destroy()
+                end
+            end
+            spinModel = nil
+        end
+
+        local function setupCharacter(char)
+            clearModel()
+            if not char then return end
+            local hrp = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 5)
+            if not hrp then return end
+
+            local oldArchivable = char.Archivable
+            char.Archivable = true
+            local clone = char:Clone()
+            char.Archivable = oldArchivable
+            if not clone then return end
+
+            for _, d in ipairs(clone:GetDescendants()) do
+                if d:IsA("BaseScript") or d:IsA("Sound") then
+                    d:Destroy()
+                elseif d:IsA("BasePart") then
+                    d.Anchored = true
+                end
+            end
+
+            local hum = clone:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+            end
+
+            clone.Parent = vf
+            clone:PivotTo(CFrame.new())
+            spinModel = clone
+        end
+
+        task.spawn(function()
+            setupCharacter(Player.Character or Player.CharacterAdded:Wait())
+        end)
+
+        Player.CharacterAdded:Connect(function(char)
+            task.spawn(setupCharacter, char)
+        end)
+
+        task.spawn(function()
+            local angle = 0
+            while Gui.Parent do
+                if spinModel and Overview.Page.Visible then
+                    angle = (angle + 0.025) % (math.pi * 2)
+                    pcall(function()
+                        spinModel:PivotTo(CFrame.Angles(0, angle, 0))
+                    end)
+                end
+                task.wait(0.03)
+            end
+        end)
+
         Overview:Section("DX PANEL")
         Overview:Button("Library loaded", function()
             print("DXPanel Library loaded")
         end)
     end
 
-    -- Called by the outer Loader after all GitHub tabs are loaded.
-    function Window:CreateSettings()
-        local Settings = Window:CreateTab("Settings", "gear")
+    function Window:CreateSettingsTab()
+        if self._SettingsTab then
+            return self._SettingsTab
+        end
 
-        Settings:Section("THEME COLOR")
-        Settings:Button("RED", function()
-            self:SetThemeColor(Color3.fromRGB(235, 30, 52))
-        end)
-        Settings:Button("BLUE", function()
-            self:SetThemeColor(Color3.fromRGB(45, 110, 255))
-        end)
-        Settings:Button("GREEN", function()
-            self:SetThemeColor(Color3.fromRGB(40, 220, 110))
-        end)
-        Settings:Button("PURPLE", function()
-            self:SetThemeColor(Color3.fromRGB(150, 80, 255))
-        end)
-        Settings:Button("CYAN", function()
-            self:SetThemeColor(Color3.fromRGB(30, 210, 230))
-        end)
-        Settings:Button("GOLD", function()
-            self:SetThemeColor(Color3.fromRGB(245, 180, 40))
+        local Settings = self:CreateTab("Settings", "gear")
+        Settings:Section("PANEL SETTINGS")
+
+        Settings:Toggle("Neon Pulse", true, function(state)
+            Actions.SetPulse(state)
         end)
 
-        Settings:Section("INTERFACE")
         Settings:Button("Open Panel", function()
             OpenPanel()
         end)
+
         Settings:Button("Close Panel", function()
             ClosePanel()
         end)
+
         Settings:Button("DELETE GUI", function()
             if Gui and Gui.Parent then
                 Gui:Destroy()
             end
         end)
 
+        self._SettingsTab = Settings
         return Settings
     end
 
