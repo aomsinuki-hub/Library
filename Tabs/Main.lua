@@ -1,23 +1,23 @@
-return function(Window, Core)
+return function(Window, Library)
 
-    local Tab = Window:CreateTab("Main", "M")
+    local Tab = Window:Tab({
+        Title = "Main",
+        Icon = "home"
+    })
 
-    Tab:Section("MAIN")
-
-    Tab:Button("Test", function()
-        print("[DXPanel] Main Test OK")
-
-        if Core and Core.Notify then
-            Core:Notify(
-                "DXPanel",
-                "Main Tab ทำงานแล้ว",
-                3
-            )
+    Tab:Button({
+        Title = "Test",
+        Content = "Test Button",
+        Callback = function()
+            print("Main Test")
         end
-    end)
+    })
 
-    Tab:Toggle("Test Toggle", false, function(value)
-        print("[DXPanel] Toggle:", value)
-    end)
+    Tab:Toggle({
+        Title = "Test Toggle",
+        Callback = function(value)
+            print("Toggle:", value)
+        end
+    })
 
 end
