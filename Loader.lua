@@ -1,142 +1,376 @@
--- DXPanel Loader
--- Overview -> auto-scanned GitHub Tabs -> Settings
--- Add a .lua file under Tabs/ and restart; no Loader edit needed.
+--// DXPanel Loader
+--// GitHub Auto Tab Loader
+--// Overview + Settings = DXPanelLib
+--// Main/Farm/Egg/ESP/etc. = GitHub /Tabs/
 
 local HttpService = game:GetService("HttpService")
 
-_G.DXPanelDeferSettings = true
+--==================================================
+-- CONFIG
+--==================================================
 
-local BASE =
-    "https://raw.githubusercontent.com/aomsinuki-hub/Library/refs/heads/main/"
+local OWNER = "aomsinuki-hub"
+local REPO = "Library"
+local BRANCH = "main"
+
+local RAW_BASE =
+    "https://raw.githubusercontent.com/"
+    .. OWNER .. "/"
+    .. REPO .. "/refs/heads/"
+    .. BRANCH .. "/"
 
 local TABS_API =
-    "https://api.github.com/repos/aomsinuki-hub/Library/contents/Tabs"
+    "https://api.github.com/repos/"
+    .. OWNER .. "/"
+    .. REPO .. "/contents/Tabs?ref="
+    .. BRANCH
 
-local TABS_RAW =
-    BASE .. "Tabs/"
+--==================================================
+-- HELPERS
+--==================================================
 
-local function Load(url)
-    local source = game:HttpGet(url)
-    local fn, err = loadstring(source)
-
-    assert(
-        fn,
-        "Compile error: " .. tostring(err)
-    )
-
-    return fn()
-end
-
--- Library -> creates Overview.
-local ok, DX = pcall(function()
-    return Load(BASE .. "DXPanelLib.lua")
-end)
-
-_G.DXPanelDeferSettings = nil
-
-assert(ok, "[DXPanel] Library load failed: " .. tostring(DX))
-assert(type(DX) == "table", "[DXPanel] Library did not return a table.")
-
--- Scan GitHub Tabs folder.
-local okList, files = pcall(function()
-    return HttpService:JSONDecode(
-        game:HttpGet(TABS_API)
-    )
-end)
-
-local loadedCount = 0
-
-if okList and type(files) == "table" then
-    local names = {}
-
-    for _, file in ipairs(files) do
-        local name = file.name
-
-        if file.type == "file"
-            and type(name) == "string"
-            and name:sub(-4):lower() == ".lua"
-        then
-            local lower = name:lower()
-
-            if lower ~= "overview.lua"
-                and lower ~= "settings.lua"
-            then
-                table.insert(names, name)
-            end
-        end
-    end
-
-    -- Keep your normal order first.
-    local priority = {
-        ["main.lua"] = 1,
-        ["farm.lua"] = 2,
-        ["egg.lua"] = 3,
-        ["esp.lua"] = 4,
-    }
-
-    table.sort(names, function(a, b)
-        local pa = priority[a:lower()] or 1000
-        local pb = priority[b:lower()] or 1000
-
-        if pa ~= pb then
-            return pa < pb
-        end
-
-        return a:lower() < b:lower()
+local function request(url)
+    local ok, result = pcall(function()
+        return game:HttpGet(url)
     end)
 
-    for _, fileName in ipairs(names) do
-        local path = TABS_RAW .. fileName
+    if not ok then
+        warn("[DXPanel] HttpGet failed:", url)
+        warn("[DXPanel] Error:", result)
+        return nil
+    end
 
-        local success, result = pcall(function()
-            return Load(path)
-        end)
+    return result
+end
 
-        if not success then
-            warn("[DXPanel] Failed to load " .. fileName .. ": " .. tostring(result))
-        elseif type(result) == "function" then
-            local ran, err = pcall(
-                result,
-                DX,
-                {
-                    Notify = function(_, title, text, duration)
-                        pcall(function()
-                            game:GetService("StarterGui"):SetCore(
-                                "SendNotification",
-                                {
-                                    Title = tostring(title or "DXPanel"),
-                                    Text = tostring(text or ""),
-                                    Duration = duration or 3,
-                                }
-                            )
-                        end)
-                    end,
-                }
-            )
+local function runCode(code, name)
+    if type(code) ~= "string" then
+        warn("[DXPanel] Invalid code:", name)
+        return nil
+    end
 
-            if ran then
-                loadedCount += 1
-            else
-                warn("[DXPanel] Tab error " .. fileName .. ": " .. tostring(err))
+    local fn, err = loadstring(code)
+
+    if not fn then
+        warn("[DXPanel] loadstring failed:", name)
+        warn("[DXPanel] Error:", err)
+        return nil
+    end
+
+    return fn
+end
+
+--==================================================
+-- LOAD DX PANEL LIBRARY
+--==================================================
+
+print("[DXPanel] Loading DXPanelLib...")
+
+local libraryCode = request(
+    RAW_BASE .. "DXPanelLib.lua"
+)
+
+if not libraryCode then
+    warn("[DXPanel] Cannot load DXPanelLib.lua")
+    return
+end
+
+local libraryLoader = runCode(
+    libraryCode,
+    "DXPanelLib.lua"
+)
+
+if not libraryLoader then
+    return
+end
+
+local okLibrary, Library = pcall(libraryLoader)
+
+if not okLibrary then
+    warn("[DXPanel] DXPanelLib crashed:")
+    warn(Library)
+    return
+end
+
+if not Library then
+    warn("[DXPanel] DXPanelLib returned nil")
+    return
+end
+
+print("[DXPanel] DXPanelLib loaded")
+
+--==================================================
+-- CREATE WINDOW
+--==================================================
+
+local Window
+
+if type(Library.CreateWindow) == "function" then
+
+    local ok, result = pcall(function()
+        return Library:CreateWindow({
+            Title = "DXPanel",
+            Subtitle = "DXPanel Premium Interface"
+        })
+    end)
+
+    if ok then
+        Window = result
+    else
+        warn("[DXPanel] CreateWindow failed:")
+        warn(result)
+        return
+    end
+
+elseif type(Library.Create) == "function" then
+
+    local ok, result = pcall(function()
+        return Library:Create({
+            Title = "DXPanel"
+        })
+    end)
+
+    if ok then
+        Window = result
+    else
+        warn("[DXPanel] Library:Create failed:")
+        warn(result)
+        return
+    end
+
+elseif Library.Window then
+
+    Window = Library.Window
+
+else
+
+    warn("[DXPanel] Cannot find Window creator in DXPanelLib")
+    warn("[DXPanel] Expected Library:CreateWindow()")
+    return
+
+end
+
+if not Window then
+    warn("[DXPanel] Window is nil")
+    return
+end
+
+print("[DXPanel] Window created")
+
+--==================================================
+-- OVERVIEW
+--==================================================
+-- Overview MUST be created first.
+-- The actual Overview system stays inside DXPanelLib.
+
+if type(Library.CreateOverview) == "function" then
+
+    local ok, err = pcall(function()
+        Library:CreateOverview(Window)
+    end)
+
+    if not ok then
+        warn("[DXPanel] Overview error:", err)
+    end
+
+elseif type(Library.SetupOverview) == "function" then
+
+    local ok, err = pcall(function()
+        Library:SetupOverview(Window)
+    end)
+
+    if not ok then
+        warn("[DXPanel] Overview error:", err)
+    end
+
+else
+
+    print("[DXPanel] Overview is handled by DXPanelLib")
+
+end
+
+--==================================================
+-- GET TAB LIST FROM GITHUB
+--==================================================
+
+print("[DXPanel] Scanning GitHub Tabs...")
+
+local apiResult = request(TABS_API)
+
+if not apiResult then
+    warn("[DXPanel] Cannot scan Tabs folder")
+    return
+end
+
+local files
+
+local okDecode, decodeResult = pcall(function()
+    return HttpService:JSONDecode(apiResult)
+end)
+
+if not okDecode then
+    warn("[DXPanel] GitHub API JSON decode failed")
+    warn(decodeResult)
+    return
+end
+
+files = decodeResult
+
+if type(files) ~= "table" then
+    warn("[DXPanel] GitHub API returned invalid data")
+    return
+end
+
+--==================================================
+-- FILTER TAB FILES
+--==================================================
+
+local tabFiles = {}
+
+for _, file in ipairs(files) do
+
+    if type(file) == "table"
+    and file.type == "file"
+    and type(file.name) == "string"
+    then
+
+        local lowerName = file.name:lower()
+
+        if lowerName:sub(-4) == ".lua" then
+
+            -- Overview / Settings are reserved
+            if lowerName ~= "overview.lua"
+            and lowerName ~= "settings.lua"
+            then
+
+                table.insert(tabFiles, file)
+
             end
-        else
-            warn("[DXPanel] " .. fileName .. " must return function(Window, Core)")
         end
     end
+end
+
+--==================================================
+-- SORT TABS
+--==================================================
+-- Keeps the result stable.
+-- Overview is already created.
+-- Settings will remain at the bottom.
+
+table.sort(tabFiles, function(a, b)
+
+    return a.name:lower() < b.name:lower()
+
+end)
+
+print(
+    "[DXPanel] Found "
+    .. tostring(#tabFiles)
+    .. " tab(s)"
+)
+
+--==================================================
+-- LOAD TABS
+--==================================================
+
+for _, file in ipairs(tabFiles) do
+
+    local fileName = file.name
+
+    print("[DXPanel] Loading Tab:", fileName)
+
+    local rawURL
+
+    if type(file.download_url) == "string" then
+        rawURL = file.download_url
+    else
+        rawURL =
+            RAW_BASE
+            .. "Tabs/"
+            .. fileName
+    end
+
+    local tabCode = request(rawURL)
+
+    if tabCode then
+
+        local tabLoader = runCode(
+            tabCode,
+            "Tabs/" .. fileName
+        )
+
+        if tabLoader then
+
+            local okTab, result = pcall(function()
+
+                return tabLoader(
+                    Window,
+                    Library
+                )
+
+            end)
+
+            if not okTab then
+
+                warn(
+                    "[DXPanel] Tab crashed:",
+                    fileName
+                )
+
+                warn(result)
+
+            else
+
+                print(
+                    "[DXPanel] Tab loaded:",
+                    fileName
+                )
+
+            end
+        end
+    end
+
+end
+
+--==================================================
+-- SETTINGS
+--==================================================
+-- Settings MUST be last.
+-- The actual Settings system stays inside DXPanelLib.
+
+if type(Library.CreateSettings) == "function" then
+
+    local ok, err = pcall(function()
+        Library:CreateSettings(Window)
+    end)
+
+    if not ok then
+        warn("[DXPanel] Settings error:", err)
+    end
+
+elseif type(Library.SetupSettings) == "function" then
+
+    local ok, err = pcall(function()
+        Library:SetupSettings(Window)
+    end)
+
+    if not ok then
+        warn("[DXPanel] Settings error:", err)
+    end
+
 else
-    warn("[DXPanel] GitHub Tabs scan failed: " .. tostring(files))
+
+    print("[DXPanel] Settings is handled by DXPanelLib")
+
 end
 
--- Settings must always be last.
-if type(DX.CreateSettings) == "function" then
-    DX:CreateSettings()
-end
+--==================================================
+-- DONE
+--==================================================
 
--- Return to Overview after all tabs are created.
-if type(DX.ActivateTab) == "function" then
-    DX:ActivateTab("Overview")
-end
-
-print("[DXPanel] Loaded. GitHub tabs: " .. tostring(loadedCount))
-
-return DX
+print("================================")
+print("[DXPanel] Loader finished")
+print("[DXPanel] Overview")
+print("[DXPanel] " .. tostring(#tabFiles) .. " GitHub Tab(s)")
+print("[DXPanel] Settings")
+print("================================")
